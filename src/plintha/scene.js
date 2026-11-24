@@ -9,11 +9,11 @@ import { WIDTH, DEPTH } from './layout.js';
 
 const TEX = '/plintha/tex/';
 // Fabric: scan (greyscale weave), tint, roughness, the scan's mean brightness (so the tint lands on its color).
-const FABRIC = {
-  'Boucle Chalk': { scan: 'Fabric085', tint: 0xeeebe4, rough: 0.95, mean: 0.51 },
-  'Wool Moss': { scan: 'Fabric085', tint: 0x6b7552, rough: 0.92, mean: 0.51 },
-  'Linen Sand': { scan: 'Fabric032', tint: 0xcdb895, rough: 0.86, mean: 0.57 },
-  'Velvet Ink': { scan: 'Fabric032', tint: 0x1d2439, rough: 0.55, mean: 0.57 },
+const FABRIC = { // the Fabric032 scan is a checked cloth, so all four fabrics use the plain weave at their own scale
+  'Boucle Chalk': { scan: 'Fabric085', repeat: 2, tint: 0xeeebe4, rough: 0.95, mean: 0.51, normal: 0.9 },
+  'Wool Moss': { scan: 'Fabric085', repeat: 2.6, tint: 0x6b7552, rough: 0.92, mean: 0.51, normal: 0.8 },
+  'Linen Sand': { scan: 'Fabric085', repeat: 4, tint: 0xcdb895, rough: 0.86, mean: 0.51, normal: 0.5 },
+  'Velvet Ink': { scan: 'Fabric085', repeat: 9, tint: 0x1d2439, rough: 0.78, mean: 0.51, normal: 0.25 },
 };
 const ease = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
 const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
@@ -48,13 +48,14 @@ export async function createPlinthaScene(canvas, { tier, reducedMotion, onReady,
     return t;
   };
   const scans = {};
-  const scan = (base) => (scans[base] ||= { map: tex(`${base}_Gray`, true, 2), normalMap: tex(`${base}_NormalGL`, false, 2), roughnessMap: tex(`${base}_Roughness`, false, 2) });
+  const scan = (base, r = 2) => (scans[base + r] ||= { map: tex(`${base}_Gray`, true, r), normalMap: tex(`${base}_NormalGL`, false, r), roughnessMap: tex(`${base}_Roughness`, false, r) });
   const upholstery = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 });
   upholstery.normalScale.set(0.9, 0.9);
   const sheen = new THREE.MeshPhysicalMaterial(); // velvet gets a sheen layer
   function setFabricMaterial(name) {
     const f = FABRIC[name] || FABRIC['Boucle Chalk'];
-    const s = scan(f.scan);
+    const s = scan(f.scan, f.repeat);
+    upholstery.normalScale.set(f.normal, f.normal);
     const c = new THREE.Color(f.tint).multiplyScalar(1 / (f.mean * 1.3));
     Object.assign(upholstery, { map: s.map, normalMap: s.normalMap, roughnessMap: s.roughnessMap, roughness: f.rough });
     upholstery.color.copy(c);
