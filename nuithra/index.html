@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Display&family=Schibsted+Grotesk:wght@400;500;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 <noscript><link href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Display&family=Schibsted+Grotesk:wght@400;500;600&display=swap" rel="stylesheet"></noscript>
-<link rel="preload" as="image" href="/nuithra/stills/hero.webp" fetchpriority="high">
+<link rel="preload" as="image" href="/nuithra/stills/hero-photo.webp" fetchpriority="high">
 <script>document.documentElement.classList.add('js')</script>
 <link rel="stylesheet" href="/src/kit/kit.css">
 <link rel="stylesheet" href="/src/nuithra/style.css">
@@ -30,12 +30,13 @@
 </header>
 
 <div class="n-stage" aria-hidden="true">
-  <img class="n-poster nuithra-still" src="/nuithra/stills/hero.webp" alt="" width="1600" height="1000" fetchpriority="high">
+  <img class="n-poster nuithra-still" src="/nuithra/stills/hero.webp" alt="" width="1600" height="1000" loading="lazy">
   <canvas id="gl"></canvas>
 </div>
 
 <main id="top">
-  <section class="n-hero" data-3d>
+  <section class="n-hero">
+    <img class="n-hero-photo" src="/nuithra/stills/hero-photo.webp" alt="The five NUITHRA bottles in a row on black stone, lit from behind." width="2400" height="1500" fetchpriority="high">
     <div class="n-hero-copy">
       <p class="n-eyebrow">Eau de parfum · Five scents</p>
       <h1>Perfume for the hours after dark</h1>
@@ -44,7 +45,7 @@
     </div>
     <div class="n-hero-foot">
       <div class="n-quick" role="group" aria-label="Choose a bottle" id="quick"></div>
-      <p class="n-hint"><span class="n-hint-wide">Click a bottle to bring it forward.</span><span class="n-hint-narrow">Tap a bottle to bring it forward.</span></p>
+      <p class="n-hint">Choose a scent to see it up close.</p>
     </div>
   </section>
 

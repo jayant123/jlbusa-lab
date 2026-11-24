@@ -61,7 +61,7 @@ function liquidGeometry(rings, n, opts, { base, fill, wall }) {
 }
 
 // Each cut: shell rings, facet count, options, where the perfume sits, the neck top, and the stopper and collar.
-const CUTS = {
+export const CUTS = {
   // Amber Hour: the crown. An eight-sided body that widens to a shoulder of kite facets.
   crown: {
     n: 8, rings: [[0, 0.021], [0.004, 0.025], [0.046, 0.031], [0.058, 0.031, 0.5], [0.07, 0.019], [0.077, 0.0105, 0.5], [0.082, 0.0095, 0.5]],

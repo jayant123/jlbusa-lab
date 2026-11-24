@@ -104,7 +104,7 @@ function setScent(h) {
 }
 const showScent = (h) => { setScent(h); $('#scent').scrollIntoView({ behavior: reduced ? 'auto' : 'smooth' }); };
 $('#scents').addEventListener('change', (e) => setScent(e.target.value));
-$('#quick').addEventListener('click', (e) => { const b = e.target.closest('.n-chip'); if (b) setScent(b.dataset.h); });
+$('#quick').addEventListener('click', (e) => { const b = e.target.closest('.n-chip'); if (b) showScent(b.dataset.h); });
 $('#grid').addEventListener('click', (e) => { const b = e.target.closest('[data-view-scent]'); if (b) showScent(b.dataset.viewScent); });
 $('#sizes').addEventListener('change', (e) => { size = e.target.value; scene?.setSize(size); render(); });
 // Discovery set: up to three picks. A fourth pick replaces the oldest one.
