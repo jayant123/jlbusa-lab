@@ -24,8 +24,8 @@ def mats():
         'case': C.material('case_finish', (0.80, 0.80, 0.82), metallic=1.0, roughness=0.32, anisotropic=0.6),
         'bezel': C.material('bezel_finish', (0.86, 0.86, 0.88), metallic=1.0, roughness=0.12),
         'dial': C.material('dial_finish', (0.018, 0.018, 0.02), metallic=0.3, roughness=0.28, coat=0.6, anisotropic=0.5),
-        'applique': C.material('applique_steel', (0.92, 0.92, 0.93), metallic=1.0, roughness=0.08),
-        'index': C.material('index_steel', (0.92, 0.92, 0.93), metallic=1.0, roughness=0.08),  # hour markers (glow at night in the web scene)
+        'applique': C.material('applique_steel', (0.95, 0.95, 0.96), metallic=1.0, roughness=0.26),
+        'index': C.material('index_steel', (0.92, 0.92, 0.93), metallic=1.0, roughness=0.08),  # applied hour markers (their lume plots glow at night)
         'print': C.material('dial_print', (0.86, 0.84, 0.80), roughness=0.6),
         'hands': C.material('hands_steel', (0.92, 0.92, 0.93), metallic=1.0, roughness=0.1),
         'lume': C.material('lume', (0.90, 0.93, 0.86), roughness=0.55),
@@ -37,6 +37,11 @@ def mats():
         'ruby': C.material('jewel_ruby', (0.55, 0.02, 0.06), roughness=0.05, transmission=0.6, ior=1.76),
         'strap': C.material('strap_finish', (0.02, 0.02, 0.022), roughness=0.62),
         'bracelet': C.material('bracelet_steel', (0.82, 0.82, 0.84), metallic=1.0, roughness=0.3, anisotropic=0.6),
+        'bridge': C.material('bridge_rhodium', (0.80, 0.81, 0.82), metallic=1.0, roughness=0.3),
+        'stitch': C.material('strap_stitch', (0.52, 0.47, 0.40), roughness=0.85),
+        'hole': C.material('strap_hole', (0.004, 0.004, 0.004), roughness=1.0),
+        'date': C.material('date_disc', (0.92, 0.91, 0.88), roughness=0.5),
+        'date_ink': C.material('date_print', (0.02, 0.02, 0.02), roughness=0.6),
     }
 
 
@@ -55,6 +60,151 @@ def lug(name, x0, x1, sign, mat):
     o = C.obj_from_bmesh(name, bm, mat, smooth=True)
     C.bevel(o, 0.0007, 4)
     return o
+
+
+def faceted(name, stations, z0, thick, ridge_k, steel, lume=None, lume_span=None, lume_f=0.5):
+    """A polished, faceted hand or index along +Y. stations: [(y, half_width)] from tail to tip.
+    The top has a centre ridge with two sloped facets. A lume band runs down the middle between lume_span[0] and
+    lume_span[1]. Steel stays on the facets either side, so the lume reads as an inlay."""
+    st = sorted(stations)
+    if lume_span:
+        for yl in lume_span:
+            for i in range(len(st) - 1):
+                (ya, wa), (yb, wb) = st[i], st[i + 1]
+                if ya < yl < yb:
+                    st.insert(i + 1, (yl, wa + (wb - wa) * (yl - ya) / (yb - ya)))
+                    break
+    bm = bmesh.new()
+    rows = []
+    for y, w in st:
+        zt = z0 + thick
+        r = w * ridge_k
+        f = lume_f
+        rows.append([bm.verts.new(v) for v in [(-w, y, z0), (-w, y, zt), (-w * f, y, zt + r * (1 - f)), (0, y, zt + r),
+                                                (w * f, y, zt + r * (1 - f)), (w, y, zt), (w, y, z0)]])
+    faces = []
+    for i in range(len(rows) - 1):
+        a, b = rows[i], rows[i + 1]
+        ym = (st[i][0] + st[i + 1][0]) / 2
+        in_lume = lume_span and lume_span[0] <= ym <= lume_span[1]
+        for k in range(6):
+            mi = 1 if in_lume and k in (2, 3) else 0
+            faces.append(((a[k], b[k], b[k + 1], a[k + 1]), mi))
+        faces.append(((a[6], b[6], b[0], a[0]), 0))
+    faces.append((tuple(rows[0]), 0))
+    faces.append((tuple(rows[-1][::-1]), 0))
+    for vs, mi in faces:
+        try:
+            bm.faces.new(vs).material_index = mi
+        except ValueError:
+            pass
+    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-9)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    o = C.obj_from_bmesh(name, bm, steel, smooth=False)
+    if lume:
+        o.data.materials.append(lume)
+    return o
+
+
+def rotated(o, angle):
+    o.rotation_euler.z = angle
+    return o
+
+
+def cyl(name, r, h, loc, rot, mat, seg=24):
+    bpy.ops.mesh.primitive_cylinder_add(vertices=seg, radius=r, depth=h, location=loc, rotation=rot)
+    o = bpy.context.view_layer.objects.active
+    o.name = name
+    o.data.materials.append(mat)
+    for p in o.data.polygons:
+        p.use_smooth = True
+    return o
+
+
+def box(name, size, loc, mat, rot=(0, 0, 0)):
+    bpy.ops.mesh.primitive_cube_add(size=1, location=loc, rotation=rot)
+    o = bpy.context.view_layer.objects.active
+    o.scale = size
+    o.name = name
+    o.data.materials.append(mat)
+    return o
+
+
+def strap_path(length, segs):
+    """Centre line of a strap: (y, z, half width, thickness) per station."""
+    out = []
+    for i in range(segs + 1):
+        t = i / segs
+        y = 0.0205 + t * length
+        out.append((t, y, 0.0052 - 2.4 * (y - 0.0205) ** 2 - 0.004 * t, 0.0036 - 0.0008 * t))
+    return out
+
+
+def strap_extras(name, sign, m, length, tip, lod, width0=0.0200, width1=0.0165):
+    """Edge stitching, keepers and holes (tip strap) or a tang buckle (short strap)."""
+    if lod == 'low':
+        return []
+    out = []
+    path = strap_path(length, 400)
+    def at(y):
+        for (t, yy, z, th) in path:
+            if yy >= y:
+                w = (width0 + (width1 - width0) * t) / 2
+                return t, z, th, w
+        t, yy, z, th = path[-1]
+        return t, z, th, (width0 + (width1 - width0) * t) / 2
+    step = 0.0021 if lod == 'high' else 0.0032
+    y = 0.0225
+    stop = 0.0205 + length - (0.010 if tip else 0.004)
+    n = 0
+    while y < stop:
+        t, z, th, w = at(y)
+        slope = -4.8 * (y - 0.0205) - 0.004 / length
+        for sx in (-1, 1):
+            out.append(box(f'{name}_st{n}_{sx}', (0.00026, 0.00105, 0.00012), (sx * (w - 0.0010), sign * y, z + th / 2 - 0.00005), m['stitch'],
+                           rot=(sign * math.atan(slope), 0, 0)))
+            if lod == 'high':
+                C.bevel(out[-1], 0.00004, 1)
+        n += 1
+        y += step
+    if tip:
+        for k, yk in enumerate([0.064, 0.070, 0.076, 0.082]):
+            t, z, th, w = at(yk)
+            out.append(cyl(f'{name}_hole{k}', 0.0007, 0.0002, (0, sign * yk, z + th / 2 + 0.00003), (0, 0, 0), m['hole'], 20))
+        for k, yk in enumerate([0.034, 0.041]):
+            t, z, th, w = at(yk)
+            slope = -4.8 * (yk - 0.0205) - 0.004 / length
+            out.append(box(f'{name}_keeper{k}', (2 * w + 0.0008, 0.0024, th + 0.0008), (0, sign * yk, z), m['strap'], rot=(sign * math.atan(slope), 0, 0)))
+            C.bevel(out[-1], 0.00035, 3)
+    else:
+        yk = 0.0205 + length
+        t, z, th, w = at(yk - 0.0005)
+        slope = -4.8 * (yk - 0.0205) - 0.004 / length
+        ang = sign * math.atan(slope)
+        rad = 0.00062
+        bar = w + 0.0012
+        parts = [cyl(f'{name}_bk_end', rad, 2 * bar, (0, sign * (yk + 0.0052), z - 0.0035 * abs(slope)), (0, math.pi / 2, 0), m['bezel'])]
+        for sx in (-1, 1):
+            parts.append(cyl(f'{name}_bk_side{sx}', rad, 0.0058, (sx * bar, sign * (yk + 0.0024), z - 0.0016 * abs(slope)), (ang + math.pi / 2, 0, 0), m['bezel']))
+        parts.append(cyl(f'{name}_bk_pin', rad * 0.55, 2 * bar, (0, sign * (yk - 0.0004), z), (0, math.pi / 2, 0), m['bezel']))
+        parts.append(box(f'{name}_bk_tongue', (0.0007, 0.0058, 0.0005), (0, sign * (yk + 0.0024), z + 0.0004 - 0.0016 * abs(slope)), m['bezel'], rot=(ang, 0, 0)))
+        out += parts
+    return out
+
+
+def wrap_pivots(parts):
+    """Each part becomes an empty at its pivot holding the mesh. Mesh compression rewrites mesh node transforms.
+    The empty keeps the pivot, so turning a hand at runtime turns it about the watch axis."""
+    out = []
+    for name, o in parts.items():
+        o.name = name + '_mesh'
+        e = bpy.data.objects.new(name, None)
+        bpy.context.collection.objects.link(e)
+        e.location = o.location.copy()
+        o.parent = e
+        o.location = (0, 0, 0)
+        out += [e, o]
+    return out
 
 
 def leaf(length, width, tail=0.0):
@@ -115,12 +265,22 @@ def build(lod='high'):
     parts = {}
 
     # Case: curved flank, open in the middle so the movement shows when the dial lifts away.
-    case = C.lathe('case_body', [(0.0166, 0.0012), (0.0186, 0.0012), (0.0196, 0.0022), (0.0200, 0.0045), (0.0200, 0.0080),
-                                 (0.0196, 0.0092), (0.0172, 0.0092), (0.0166, 0.0085), (0.0166, 0.0012)], seg, m['case'])
+    case = C.lathe('case_body', [(0.0196, 0.0022), (0.0200, 0.0045), (0.0200, 0.0080)], seg, m['case'])
+    chamfers = [C.lathe('case_chamfer_lo', [(0.0166, 0.0012), (0.0186, 0.0012), (0.0196, 0.0022)], seg, m['bezel']),
+                C.lathe('case_chamfer_hi', [(0.0200, 0.0080), (0.0196, 0.0092), (0.0172, 0.0092), (0.0166, 0.0085), (0.0166, 0.0012)], seg, m['bezel'])]
+    notches = []
+    if lod != 'low':
+        for i in range(6):
+            a = i * math.pi / 3 + math.pi / 6
+            notches.append(box(f'notch{i}', (0.0011, 0.0006, 0.0005), (0.01855 * math.cos(a), 0.01855 * math.sin(a), 0.0003), m['bezel'], rot=(0, 0, a)))
     back = C.lathe('caseback', [(0.0120, 0.0016), (0.0186, 0.0016), (0.0184, 0.0004), (0.0172, 0.0), (0.0120, 0.0), (0.0120, 0.0016)], seg, m['case'])
     backglass = C.lathe('caseback_glass', [(0, 0.0012), (0.0122, 0.0012), (0.0122, 0.0002), (0, 0.0002)], seg, m['glass'])
     lugs = [lug(f'lug{i}', sx * 0.0135, sx * 0.0105, sy, m['case']) for i, (sx, sy) in enumerate([(1, 1), (-1, 1), (1, -1), (-1, -1)])]
-    parts['case'] = C.join('case', [case, back, backglass, *lugs])
+    for o in lugs:  # the rounded lug edges are polished, the flat tops stay brushed
+        o.data.materials.append(m['bezel'])
+        o.modifiers['Bevel'].material = 1
+        o.modifiers['Bevel'].segments = 5 if lod == 'high' else 3
+    parts['case'] = C.join('case', [case, *chamfers, back, backglass, *lugs, *notches])
 
     parts['bezel'] = C.lathe('bezel', [(0.0170, 0.0092), (0.0199, 0.0092), (0.0200, 0.0098), (0.0191, 0.0110), (0.0175, 0.0113),
                                        (0.0170, 0.0107), (0.0170, 0.0092)], seg, m['bezel'])
@@ -132,14 +292,37 @@ def build(lod='high'):
     markers = []
     for h in range(12):
         a = math.pi / 2 - h * math.pi / 6
-        widths = [(-0.00055, -0.00005), (0.00005, 0.00055)] if h == 0 else [(-0.00032, 0.00032)]
-        for wa, wb in widths:
-            pts = [(wa, 0.0134), (wb, 0.0134), (wb, 0.0160), (wa, 0.0160)]
-            rot = [(x * math.cos(a - math.pi / 2) - y * math.sin(a - math.pi / 2), x * math.sin(a - math.pi / 2) + y * math.cos(a - math.pi / 2)) for x, y in pts]
-            o = C.extrude_poly(f'idx{h}{wa}', rot, 0.0064, 0.00068 + 0.0064, m['index'])
+        if h == 3:
+            continue  # the date window takes the place of the 3 o'clock index
+        for dx in ([-0.0003, 0.0003] if h == 0 else [0.0]):
+            st = [(0.0134, 0.00026), (0.01345, 0.00028), (0.0159, 0.00028), (0.0160, 0.00026)]
+            o = faceted(f'idx{h}_{dx}', st, 0.0064, 0.00045, 0.55, m['index'], m['lume'], (0.0137, 0.0157), 0.5)
+            o.location.x = dx
+            C.apply_all(o)
+            o = bpy.context.view_layer.objects.active
+            o.rotation_euler.z = a - math.pi / 2
             if lod != 'low':
-                C.bevel(o, 0.00006, 1)
+                C.bevel(o, 0.00003, 1)
             markers.append(o)
+    # Date window at 3: a polished frame around a white date wheel.
+    fx0, fx1, fh = 0.0137, 0.0158, 0.00085
+    date = [C.extrude_poly('date_disc', [(fx0, -fh), (fx1, -fh), (fx1, fh), (fx0, fh)], 0.0064, 0.00641, m['date'])]
+    for nm, pts in [('fr_t', [(fx0 - 0.0002, fh), (fx1 + 0.0002, fh), (fx1 + 0.0002, fh + 0.0002), (fx0 - 0.0002, fh + 0.0002)]),
+                    ('fr_b', [(fx0 - 0.0002, -fh - 0.0002), (fx1 + 0.0002, -fh - 0.0002), (fx1 + 0.0002, -fh), (fx0 - 0.0002, -fh)]),
+                    ('fr_l', [(fx0 - 0.0002, -fh), (fx0, -fh), (fx0, fh), (fx0 - 0.0002, fh)]),
+                    ('fr_r', [(fx1, -fh), (fx1 + 0.0002, -fh), (fx1 + 0.0002, fh), (fx1, fh)])]:
+        fr = C.extrude_poly(nm, pts, 0.0064, 0.00668, m['applique'])
+        if lod != 'low':
+            C.bevel(fr, 0.00004, 1)
+        date.append(fr)
+    num = C.text_mesh('date_num', '24', FONT, 0.0011, 0.00642, m['date_ink'], extrude=0.000005, y=0.0)
+    num.location.x = (fx0 + fx1) / 2
+    date.append(num)
+    markers += date
+    # Printed chapter ring: two fine circles that frame the minute track.
+    if lod != 'low':
+        for r in (0.01608, 0.01648):
+            markers.append(C.lathe(f'chapter{r}', [(r, 0.006405), (r + 0.00004, 0.006405)], seg, m['print']))
     if lod != 'low':
         for k in range(60):
             if k % 5 == 0:
@@ -148,29 +331,45 @@ def build(lod='high'):
             pts = [(-0.00005, 0.01615), (0.00005, 0.01615), (0.00005, 0.0164), (-0.00005, 0.0164)]
             rot = [(x * math.cos(a - math.pi / 2) - y * math.sin(a - math.pi / 2), x * math.sin(a - math.pi / 2) + y * math.cos(a - math.pi / 2)) for x, y in pts]
             markers.append(C.extrude_poly(f'tick{k}', rot, 0.0064, 0.00642, m['print']))
-    word = C.text_mesh('wordmark', 'OSTREL', FONT, 0.0021, 0.0064, m['applique'], extrude=0.00006, y=0.0074, letter_spacing=1.3)
-    word.location.z = 0.00644
+    word = C.text_mesh('wordmark', 'OSTREL', FONT, 0.0021, 0.0064, m['applique'], extrude=0.00011, y=0.0074, letter_spacing=1.3)
+    word.location.z = 0.00651
     sub = C.text_mesh('subline', 'AUTOMATIC', FONT, 0.00072, 0.0064, m['print'], extrude=0.00001, y=-0.0072, letter_spacing=1.6)
     sub.location.z = 0.00641
     parts['dial'] = C.join('dial', [dial, *markers, word, sub])
 
-    # Hands (pointing to 12; rotated at runtime).
-    hh = C.extrude_poly('hands_hour', leaf(0.0098, 0.0019, 0.0016), 0.0069, 0.00705, m['hands'])
-    hl = C.extrude_poly('hour_lume', leaf(0.0078, 0.0008, -0.0018), 0.00705, 0.0071, m['lume'])
-    parts['hands_hour'] = C.join('hands_hour', [hh, hl])
-    mh = C.extrude_poly('hands_minute', leaf(0.0148, 0.0014, 0.0018), 0.0072, 0.00735, m['hands'])
-    ml = C.extrude_poly('minute_lume', leaf(0.0128, 0.0006, -0.0022), 0.00735, 0.0074, m['lume'])
-    parts['hands_minute'] = C.join('hands_minute', [mh, ml])
-    sh = C.extrude_poly('hands_second', [(-0.00018, -0.0045), (0.00018, -0.0045), (0.00012, 0.0156), (-0.00012, 0.0156)], 0.0075, 0.00758, m['accent'])
-    cw = C.lathe('counterweight', [(0, 0.00758), (0.00065, 0.00758), (0.00065, 0.0075), (0, 0.0075)], 24, m['accent'])
-    cw.location.y = -0.0036
-    cap = C.lathe('hand_cap', [(0, 0.0078), (0.0005, 0.0078), (0.0007, 0.0076), (0.0007, 0.0066), (0, 0.0066)], 32, m['accent'])
-    parts['hands_second'] = C.join('hands_second', [sh, cw, cap])
+    # Hands (pointing to 12; turned at runtime). Faceted polished steel with a centre ridge and lume inlays.
+    n = 16 if lod != 'low' else 8
+    def taper(tail, tail_w, max_y, max_w, tip, tip_w=0.00002, hub_w=None):
+        pts = [(tail, tail_w)]
+        for i in range(1, n):
+            y = tail + (tip - tail) * i / n
+            if y <= max_y:
+                k = (y - tail) / (max_y - tail)
+                w = tail_w + (max_w - tail_w) * math.sin(k * math.pi / 2)
+            else:
+                k = (y - max_y) / (tip - max_y)
+                w = max_w + (tip_w - max_w) * k ** 1.15
+            pts.append((y, w))
+        pts.append((tip, tip_w))
+        return pts
+    hh = faceted('hands_hour', taper(-0.0017, 0.00035, 0.0024, 0.00095, 0.0098), 0.0069, 0.00012, 0.32, m['hands'], m['lume'], (0.0019, 0.0082), 0.55)
+    hb = C.lathe('hour_boss', [(0, 0.00702), (0.0011, 0.00702), (0.00115, 0.00698), (0.00115, 0.0069), (0, 0.0069)], 48, m['hands'])
+    parts['hands_hour'] = C.join('hands_hour', [hh, hb])
+    mh = faceted('hands_minute', taper(-0.0020, 0.00028, 0.0032, 0.00072, 0.0150), 0.00732, 0.00011, 0.32, m['hands'], m['lume'], (0.0027, 0.0132), 0.55)
+    mb = C.lathe('minute_boss', [(0, 0.00743), (0.0009, 0.00743), (0.00095, 0.0074), (0.00095, 0.00732), (0, 0.00732)], 48, m['hands'])
+    parts['hands_minute'] = C.join('hands_minute', [mh, mb])
+    sh = faceted('hands_second', [(-0.0048, 0.00012), (0.0, 0.00013), (0.0156, 0.00004)], 0.0076, 0.00007, 0.4, m['accent'])
+    cw = C.lathe('counterweight', [(0, 0.00771), (0.00058, 0.00771), (0.00066, 0.00766), (0.00066, 0.0076), (0, 0.0076)], 40, m['accent'])
+    cw.location.y = -0.0040
+    tipdot = C.lathe('second_lume', [(0, 0.00768), (0.00026, 0.00768), (0.00026, 0.00762), (0, 0.00762)], 24, m['lume'])
+    tipdot.location.y = 0.0128
+    cap = C.lathe('hand_cap', [(0, 0.00795), (0.00025, 0.00793), (0.00048, 0.00785), (0.00062, 0.0077), (0.00062, 0.0066), (0, 0.0066)], 48, m['accent'])
+    parts['hands_second'] = C.join('hands_second', [sh, cw, tipdot, cap])
 
     # Movement: plate with bridges and jewels, gear train, escape wheel, balance.
     plate = C.lathe('plate', [(0, 0.0034), (0.0158, 0.0034), (0.0160, 0.0031), (0.0160, 0.0018), (0, 0.0018)], seg, m['rhodium'])
-    bridges = [C.extrude_poly('bridge_a', [(-0.0150, 0.002), (-0.004, 0.0105), (0.0, 0.0125), (0.0035, 0.0105), (0.002, 0.007), (-0.0135, -0.002)], 0.0034, 0.0039, m['rhodium']),
-               C.extrude_poly('bridge_b', [(0.004, -0.012), (0.0145, -0.004), (0.0152, 0.003), (0.0100, 0.0025), (0.0015, -0.0070)], 0.0034, 0.0039, m['rhodium'])]
+    bridges = [C.extrude_poly('bridge_a', [(-0.0150, 0.002), (-0.004, 0.0105), (0.0, 0.0125), (0.0035, 0.0105), (0.002, 0.007), (-0.0135, -0.002)], 0.0034, 0.0039, m['bridge']),
+               C.extrude_poly('bridge_b', [(0.004, -0.012), (0.0145, -0.004), (0.0152, 0.003), (0.0100, 0.0025), (0.0015, -0.0070)], 0.0034, 0.0039, m['bridge'])]
     for b in bridges:
         C.bevel(b, 0.0002, 2 if lod != 'low' else 1)
     jewels = []
@@ -213,16 +412,24 @@ def build(lod='high'):
     bal.location.x, bal.location.y = -0.0092, -0.0048
     parts['balance_wheel'] = bal
 
-    crown = C.gear('crown', 28, 0.0025, 0.0028, -0.0014, 0.0014, m['case'])
-    stem = C.lathe('stem', [(0, 0.0034), (0.0011, 0.0034), (0.0011, -0.0012), (0, -0.0012)], 24, m['case'])
-    crown_o = C.join('crown', [crown, stem])
+    teeth = {'high': 44, 'mid': 32, 'low': 20}[lod]
+    crown = C.gear('crown', teeth, 0.00255, 0.0028, 0.0003, 0.0023, m['case'])
+    if lod != 'low':
+        C.bevel(crown, 0.00006, 1)
+    rims = [C.lathe('crown_in', [(0, 0.0), (0.0026, 0.0), (0.0029, 0.0002), (0.0029, 0.0003), (0, 0.0003)], 64, m['bezel']),
+            C.lathe('crown_out', [(0, 0.0023), (0.0029, 0.0023), (0.0029, 0.0024), (0.0026, 0.00265), (0.0012, 0.0028), (0, 0.00283)], 64, m['bezel']),
+            C.lathe('crown_logo', [(0.0011, 0.00283), (0.0015, 0.0028), (0.0015, 0.00292), (0.0011, 0.00295), (0.0011, 0.00283)], 48, m['applique']),
+            C.lathe('crown_tube', [(0, -0.0013), (0.0013, -0.0013), (0.0013, 0.0), (0, 0.0)], 32, m['bezel'])]
+    crown_o = C.join('crown', [crown, *rims])
     crown_o.rotation_euler.y = math.pi / 2
-    crown_o.location = (0.0216, 0.0, 0.0052)
+    crown_o.location = (0.0213, 0.0, 0.0052)
     parts['crown'] = crown_o
 
     segs = {'high': 40, 'mid': 24, 'low': 12}[lod]
-    parts['strap_top'] = strap_band('strap_top', 1, m['strap'], segs, tip=False, length=0.070)
-    parts['strap_bottom'] = strap_band('strap_bottom', -1, m['strap'], segs, tip=True, length=0.082)
+    st = strap_band('strap_top', 1, m['strap'], segs, tip=False, length=0.070)
+    parts['strap_top'] = C.join('strap_top', [st, *strap_extras('strap_top', 1, m, 0.070, False, lod)])
+    sb = strap_band('strap_bottom', -1, m['strap'], segs, tip=True, length=0.082)
+    parts['strap_bottom'] = C.join('strap_bottom', [sb, *strap_extras('strap_bottom', -1, m, 0.082, True, lod)])
     parts['bracelet_top'] = bracelet('bracelet_top', 1, m, segs)
     parts['bracelet_bottom'] = bracelet('bracelet_bottom', -1, m, segs)
     return parts
@@ -235,5 +442,5 @@ if __name__ == '__main__':
     parts = build(lod)
     out = os.path.abspath(a.get('out', f'public/ostrel/watch-{lod}.glb'))
     os.makedirs(os.path.dirname(out), exist_ok=True)
-    C.export_glb(out, list(parts.values()))
+    C.export_glb(out, wrap_pivots(parts))
     print('EXPORTED', out, sorted(parts))

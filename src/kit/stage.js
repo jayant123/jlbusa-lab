@@ -12,7 +12,8 @@ function defaultRenderer(canvas, tier) {
   return r;
 }
 
-export function createStage(canvas, { tier = 'mid', envUrl, createRenderer = defaultRenderer, fov = 30 } = {}) {
+export function createStage(canvas, { tier = 'mid', envUrl, createRenderer = defaultRenderer, fov = 30, maxDpr, minDpr = 0.75, shouldRender, quickStart = false } = {}) {
+  const capDpr = maxDpr ?? MAX_DPR[tier];
   const listeners = { fallback: new Set(), frame: new Set() };
   let fellBack = false;
   const fallback = (reason) => {
@@ -36,7 +37,7 @@ export function createStage(canvas, { tier = 'mid', envUrl, createRenderer = def
   }
   canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault?.(); fallback(new Error('context lost')); });
 
-  let dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR[tier]);
+  let dpr = Math.max(Math.min(minDpr, window.devicePixelRatio || 1), Math.min(window.devicePixelRatio || 1, capDpr));
   const resize = () => {
     if (!renderer) return;
     const w = canvas.clientWidth || window.innerWidth, h = canvas.clientHeight || window.innerHeight;
@@ -47,18 +48,22 @@ export function createStage(canvas, { tier = 'mid', envUrl, createRenderer = def
   };
   if (renderer) { resize(); window.addEventListener('resize', resize); }
 
-  let last = 0, acc = 0, n = 0;
+  let last = 0, acc = 0, n = 0, early = quickStart;
   const loop = (t) => {
     const dt = last ? t - last : 16.7;
     last = t;
     acc += dt; n += 1;
+    if (early && n === 6) { // quickStart: a device that can't draw the first frames in time starts at the floor
+      early = false;
+      if (acc / n > 50) { dpr = Math.min(minDpr, capDpr); resize(); acc = 0; n = 0; }
+    }
     if (n === 30) { // adapt resolution every 30 frames
-      const next = nextPixelRatio(dpr, acc / n, { max: MAX_DPR[tier] });
+      const next = nextPixelRatio(dpr, acc / n, { max: capDpr, min: Math.min(minDpr, capDpr) });
       if (next !== dpr) { dpr = next; resize(); }
       acc = 0; n = 0;
     }
     listeners.frame.forEach((fn) => fn(dt / 1000, t / 1000));
-    renderer.render(scene, camera);
+    if (!shouldRender || shouldRender()) renderer.render(scene, camera);
   };
 
   let gltfLoader = null;

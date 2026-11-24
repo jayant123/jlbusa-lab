@@ -166,7 +166,8 @@ function fallback() {
 
 async function start3d() {
   const device = readDevice();
-  const tier = detectTier(device);
+  const forced = new URLSearchParams(location.search).get('tier');
+  const tier = ['low', 'mid', 'high'].includes(forced) ? forced : detectTier(device);
   if (!device.webgl2) return fallback();
   try {
     const { createOstrelScene } = await import('./scene.js');

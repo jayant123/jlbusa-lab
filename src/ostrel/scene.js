@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { createStage } from '../kit/stage.js';
 import { partOffsets, PARTS } from './explode.js';
+import { planarUV, buildMaps } from './finish-maps.js';
 
 const P = (o) => new THREE.MeshPhysicalMaterial(o);
 const FINISH = {
@@ -38,6 +39,10 @@ const FOCUS = {
   Case: [[0.080, 0.030, 0.050], [0.0, 0.004, 0.0]],
   Strap: [[0.050, 0.090, 0.125], [0.0, 0.0, 0.018]],
   Engraving: [[0.010, 0.105, 0.046], [0.0, 0.0, -0.004]],
+  // Close views used for detail review (?debug). Not reachable from the page UI.
+  Hands: [[0.002, 0.040, 0.016], [0.0, 0.007, 0.0]],
+  Crown: [[0.050, 0.020, 0.016], [0.018, 0.005, 0.0]],
+  Lugs: [[0.030, 0.030, 0.050], [0.010, 0.004, 0.018]],
 };
 // Label anchors: height above the part origin and radius from the axis, in meters.
 const ANCHOR = {
@@ -123,7 +128,10 @@ function rotor() {
   s.absarc(0, 0, 0.0034, Math.PI * 0.98, Math.PI * 0.02, true);
   const g = new THREE.ExtrudeGeometry(s, { depth: 0.00028, bevelEnabled: true, bevelThickness: 0.00004, bevelSize: 0.00004, bevelSegments: 1, curveSegments: 48 });
   g.rotateX(Math.PI / 2);
-  const arm = new THREE.Mesh(g, P({ color: 0xd9b67a, metalness: 1, roughness: 0.26, clearcoat: 0.4 }));
+  planarUV(g);
+  const armMat = P({ color: 0xd9b67a, metalness: 1, roughness: 0.26, clearcoat: 0.4 });
+  const arm = new THREE.Mesh(g, armMat);
+  arm.userData.cotes = true;
   const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.0034, 0.0034, 0.00045, 40), P({ color: 0xe6c68e, metalness: 1, roughness: 0.34 }));
   const screw = new THREE.Mesh(new THREE.CylinderGeometry(0.0011, 0.0011, 0.0006, 24), P({ color: 0x23356e, metalness: 1, roughness: 0.25 }));
   screw.position.y = -0.0002;
@@ -135,8 +143,12 @@ function rotor() {
 }
 
 export async function createOstrelScene(canvas, { tier, onReady, onFallback, reducedMotion, intro = false, dragSurfaces = [] }) {
-  const stage = createStage(canvas, { tier, fov: 28, createRenderer: (c, tr) => {
-    const r = new THREE.WebGLRenderer({ canvas: c, antialias: tr !== 'low', alpha: true, powerPreference: 'high-performance' });
+  // The hands and indices are fractions of a millimeter wide. At low resolution their
+  // edges step visibly, so this scene renders up to 2x, never drops below 1x and multisamples on every tier.
+  // Draw only when something on screen changes. At rest that is the seconds hand, eight steps a second.
+  let dirty = true;
+  const stage = createStage(canvas, { tier, fov: 28, maxDpr: tier === 'low' ? 1.5 : 2, minDpr: 1, quickStart: true, shouldRender: () => { const d = dirty; dirty = false; return d; }, createRenderer: (c) => {
+    const r = new THREE.WebGLRenderer({ canvas: c, antialias: true, alpha: true, powerPreference: 'high-performance' });
     r.toneMapping = THREE.ACESFilmicToneMapping;
     r.toneMappingExposure = intro ? 0 : 1.05;
     r.outputColorSpace = THREE.SRGBColorSpace;
@@ -194,10 +206,45 @@ export async function createOstrelScene(canvas, { tier, onReady, onFallback, red
   });
   const slots = (name) => { const out = []; root.traverse((o) => { if (o.isMesh && o.material.name === name) out.push(o); }); return out; };
   const dialMeshes = slots('dial_finish'), caseMeshes = [...slots('case_finish')], bezelMeshes = slots('bezel_finish'), strapMeshes = slots('strap_finish');
-  const lumeMats = [...new Set([...slots('lume'), ...slots('index_steel')].map((o) => o.material))];
+  const lumeMats = [...new Set(slots('lume').map((o) => o.material))];
   lumeMats.forEach((m) => { m.emissive = LUME.clone(); m.emissiveIntensity = 0; });
+  // Finishes: sunburst dial, leather grain, perlage on the plate, Côtes de Genève on the bridges and rotor.
+  let maps = null;
+  const decorate = (group, m) => {
+    if (!maps) return m;
+    if (group === 'dial') { m.anisotropy = 0.85; m.anisotropyMap = maps.sun; m.roughness = Math.max(0.22, m.roughness); }
+    if (group === 'strap') { m.normalMap = maps.grain.clone(); m.normalMap.repeat.set(16, 16); m.normalScale.set(0.32, 0.32); }
+    return m;
+  };
   const cache = {};
-  const mat = (group, value) => (cache[group + value] ||= FINISH[group][value]());
+  const mat = (group, value) => (cache[group + value] ||= decorate(group, FINISH[group][value]()));
+
+  // The finishes arrive from a worker after the first frames. They are compiled off screen, then swapped in.
+  async function upgrade() {
+    const m = await buildMaps(tier);
+    if (!m) return;
+    const swaps = [];
+    const normal = (mesh, tex, repeat, scale) => {
+      const mm = mesh.material.clone();
+      mm.normalMap = tex.clone();
+      mm.normalMap.repeat.set(repeat, repeat);
+      mm.normalScale.set(scale, scale);
+      swaps.push([mesh, mm]);
+    };
+    [...dialMeshes, ...strapMeshes, ...slots('movement_rhodium'), ...slots('bridge_rhodium')].forEach((o) => planarUV(o.geometry));
+    slots('movement_rhodium').forEach((o) => normal(o, m.perl, 3.2, 0.5));
+    slots('bridge_rhodium').forEach((o) => normal(o, m.cotes, 1.6, 0.7));
+    rot.traverse((o) => { if (o.isMesh && o.userData.cotes) normal(o, m.cotes, 1.4, 0.8); });
+    maps = m;
+    for (const [k, v] of Object.entries(cache)) decorate(k.startsWith('dial') ? 'dial' : k.startsWith('strap') ? 'strap' : 'case', v);
+    const warm = new THREE.Scene();
+    warm.environment = scene.environment;
+    warm.add(...swaps.map(([mesh, mm]) => new THREE.Mesh(mesh.geometry, mm)), ...Object.values(cache).map((mm) => new THREE.Mesh(dialMeshes[0]?.geometry || new THREE.BufferGeometry(), mm)));
+    Object.values(cache).forEach((mm) => { mm.needsUpdate = true; });
+    try { await renderer.compileAsync(warm, camera); } catch { /* compiled on first draw instead */ }
+    swaps.forEach(([mesh, mm]) => { mesh.material = mm; });
+    dirty = true;
+  }
 
   // Engraved caseback ring and the rotor behind the sapphire window.
   const engCanvas = document.createElement('canvas');
@@ -243,7 +290,7 @@ export async function createOstrelScene(canvas, { tier, onReady, onFallback, red
       camera.setViewOffset(w, h, 0, h * (short ? 0.34 : w < 600 ? 0.3 : 0.2), w, h); dist = short ? 2.3 : w < 600 ? 1.8 : 1.2; }
     camera.updateProjectionMatrix();
   }
-  window.addEventListener('resize', frame);
+  window.addEventListener('resize', () => { frame(); dirty = true; });
   frame();
 
   // Pointer: the watch leans toward a mouse cursor in the opening view. Dragging sideways turns it.
@@ -276,7 +323,7 @@ export async function createOstrelScene(canvas, { tier, onReady, onFallback, red
   let introAt = intro ? -1 : null, introDone = null;
   const introK = (now) => (introAt === null ? 1 : introAt < 0 ? 0 : clamp((now - introAt) / 2.8));
 
-  let rotorA = 0;
+  let rotorA = 0, lastSig = [];
   const tmp = new THREE.Vector3(), camRight = new THREE.Vector3();
   stage.onFrame((dt, now) => {
     const sm = (rate) => Math.min(1, dt * (reducedMotion ? 30 : rate));
@@ -336,6 +383,11 @@ export async function createOstrelScene(canvas, { tier, onReady, onFallback, red
     camera.position.lerp(posV, ik < 1 ? 1 : 0.08);
     camera.lookAt(...g);
     camera.updateMatrixWorld();
+    // Something moved? The movement is only on show when the watch is open or turned over.
+    const sig = [camera.position.x, camera.position.y, camera.position.z, spin.rotation.y, flip.rotation.x, Math.floor(s * 8), t, night,
+      renderer.toneMappingExposure, key.position.x, key.position.z];
+    if (t > 0.002 || flipV > 0.002 || sig.some((v, i) => Math.abs(v - (lastSig[i] ?? Infinity)) > 1e-6)) dirty = true;
+    lastSig = sig;
   });
 
   const [p0, g0] = viewAt(0);
@@ -345,15 +397,20 @@ export async function createOstrelScene(canvas, { tier, onReady, onFallback, red
   try { await renderer.compileAsync(scene, camera); } catch { renderer.compile(scene, camera); }
   stage.start();
   onReady?.();
+  if (tier !== 'low' && !location.search.includes('nomaps')) {
+    const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 300));
+    idle(() => upgrade().catch(() => {}), { timeout: 4000 });
+  }
+  const touch = (fn) => (...a) => { dirty = true; return fn(...a); };
   return {
-    apply,
-    setT,
-    setConfigView(on) { configView = on; if (on) tTarget = 0; },
+    apply: touch(apply),
+    setT: touch(setT),
+    setConfigView(on) { configView = on; if (on) tTarget = 0; dirty = true; },
     setMacro(on) { macro = on; },
     setNight(v) { nightT = clamp(v); },
     setFlip(v) { flipT = clamp(v); },
     focus(k) { focusKey = k; },
-    setEngraving(text) { if (text !== personal) { personal = text; redraw(); } },
+    setEngraving(text) { if (text !== personal) { personal = text; redraw(); dirty = true; } },
     playIntro() {
       if (introAt === null) return Promise.resolve();
       introAt = performance.now() / 1000;
