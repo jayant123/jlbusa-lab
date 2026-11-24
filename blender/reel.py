@@ -17,7 +17,11 @@ from mathutils import Vector
 sys.path.insert(0, os.path.dirname(__file__))
 import common as C  # noqa: E402
 import ostrel_watch as W  # noqa: E402
+import plintha_set as PS  # noqa: E402
 from stills import EXPLODE, area, ostrel_render_materials  # noqa: E402
+
+# PLINTHA storyboard (24 fps, 20 s): an empty sunlit gallery, the modules drop onto their plinths one by one,
+# a low glide along the plinths and the fabric, then the light turns to evening. End card from 18.2 s.
 
 FPS, N = 24, 480
 ORDER = ['crystal', 'bezel', 'hands_second', 'hands_minute', 'hands_hour', 'dial', 'balance_wheel', 'gear_train', 'escape_wheel']
@@ -148,9 +152,99 @@ def ostrel(aspect, out, samples, frames):
         bpy.ops.render.render(write_still=True)
 
 
+PCAM = [  # frame, location, target, lens (Blender axes: z up, front is -y)
+    (0, (-1.2, -6.6, 1.5), (1.9, -0.6, 0.45), 26),
+    (80, (-0.7, -5.4, 1.3), (1.9, -0.7, 0.4), 28),
+    (210, (-0.5, -4.9, 1.25), (1.9, -0.8, 0.4), 30),
+    (262, (0.2, -2.3, 0.34), (1.3, -0.95, 0.22), 45),
+    (318, (1.4, -1.9, 0.62), (1.6, -0.6, 0.42), 52),
+    (410, (-0.5, -5.3, 1.6), (1.9, -0.8, 0.4), 30),
+    (480, (-0.35, -5.0, 1.5), (1.9, -0.8, 0.4), 30),
+]
+PLAN = [('arm_left', (0.0, 0.0), 0), ('armless', (1.05, 0.0), 0), ('armless', (1.95, 0.0), 0), ('corner', (2.85, 0.0), 0),
+        ('armless', (3.85, -1.0), -math.pi / 2), ('arm_right', (3.85, -1.9), -math.pi / 2), ('ottoman', (1.3, -1.55), 0)]
+
+
+def pcam_at(f):
+    for (f0, p0, t0, l0), (f1, p1, t1, l1) in zip(PCAM, PCAM[1:]):
+        if f <= f1:
+            k = ease((f - f0) / (f1 - f0))
+            lerp = lambda a, b: tuple(x + (y - x) * k for x, y in zip(a, b))
+            return lerp(p0, p1), lerp(t0, t1), l0 + (l1 - l0) * k
+    return PCAM[-1][1], PCAM[-1][2], PCAM[-1][3]
+
+
+def plintha(aspect, out, samples, frames):
+    C.reset()
+    m = PS.mats('Boucle Chalk')
+    proto = {k: PS.module(k, m, 'high') for k in PS.FOOT}
+    for o in proto.values():
+        o.hide_render = True
+    r = PS.room('high')
+    r['rug'].location = (2.0, -2.05, 0)
+    r['side_table'].location = (-0.42, -0.55, 0)
+    r['floor_lamp'].location = (-0.85, 0.25, 0)
+    C.extrude_poly('ceiling', [(-1.45, -9.0), (12.0, -9.0), (12.0, 1.2), (-1.45, 1.2)], 3.4, 3.5, C.material('ceiling', (0.9, 0.89, 0.86), roughness=0.9))
+    placed = []
+    for kind, (x, y), rz in PLAN:
+        o = proto[kind].copy()
+        bpy.context.collection.objects.link(o)
+        o.hide_render = False
+        o.location = (x, y, 0)
+        o.rotation_euler.z = rz
+        placed.append(o)
+    setup(aspect, samples)
+    s = bpy.context.scene
+    s.view_settings.look = 'AgX - Base Contrast'
+    s.world.node_tree.nodes['Background'].inputs['Color'].default_value = (0.70, 0.66, 0.60, 1)
+    bg = s.world.node_tree.nodes['Background'].inputs['Strength']
+    sun = bpy.data.lights.new('sun', 'SUN')
+    sun.angle = math.radians(2.5)
+    sun.color = (1.0, 0.95, 0.86)
+    so = bpy.data.objects.new('sun', sun)
+    bpy.context.collection.objects.link(so)
+    so.rotation_euler = (math.radians(57), 0, math.radians(-62))
+    fill = area('fill', (1.5, -5.0, 2.2), (math.radians(70), 0, 0), 3.0, 120, (0.92, 0.95, 1.0))
+    lamp = area('lamp', (-0.85, 0.25, 1.5), (0, 0, 0), 0.4, 0, (1.0, 0.68, 0.38), shape='DISK')
+    low = area('lamp_low', (-0.8, -1.9, 0.6), (math.radians(90), 0, math.radians(-60)), 0.3, 0, (1.0, 0.62, 0.32), shape='DISK')
+    cd = bpy.data.cameras.new('cam')
+    cd.clip_start = 0.01
+    cd.dof.use_dof = True
+    cd.dof.aperture_fstop = 5.6
+    cam = bpy.data.objects.new('cam', cd)
+    bpy.context.collection.objects.link(cam)
+    s.camera = cam
+    lo, hi = frames
+    os.makedirs(out, exist_ok=True)
+    for f in range(lo, hi + 1):
+        for i, o in enumerate(placed):
+            k = ease((f - (84 + i * 16)) / 22)
+            o.location.z = 0.9 * (1 - k)
+            o.hide_render = f < 84 + i * 16
+        rk = ease((f - 60) / 40)
+        r['rug'].scale = (max(0.001, rk), 1, 1)
+        ev = ease((f - 330) / 70)
+        sun.energy = 8.0 * (1 - ev)
+        bg.default_value = 0.5 * (1 - ev) + 0.03 * ev
+        fill.data.energy = 120 * (1 - ev) + 6 * ev
+        lamp.data.energy = 60 * ev
+        low.data.energy = 25 * ev
+        loc, tgt, lens = pcam_at(f)
+        cam.location = loc
+        d = Vector(tgt) - Vector(loc)
+        cam.rotation_euler = d.to_track_quat('-Z', 'Y').to_euler()
+        cd.lens = lens * (0.8 if aspect == 'tall' else 1.0)
+        cd.dof.focus_distance = d.length
+        fade = -8 * ease((f - 440) / 36) if f > 440 else (-6 * (1 - ease(f / 24)) if f < 24 else 0)
+        s.view_settings.exposure = fade
+        s.frame_set(f)
+        s.render.filepath = os.path.join(out, f'f{f:04d}.png')
+        bpy.ops.render.render(write_still=True)
+
+
 if __name__ == '__main__':
     a = C.args()
     fr = a.get('frames', f'0-{N - 1}').split('-')
     out = os.path.abspath(a.get('out', f"build/reel-{a.get('brand', 'ostrel')}-{a.get('aspect', 'wide')}"))
-    {'ostrel': ostrel}[a.get('brand', 'ostrel')](a.get('aspect', 'wide'), out, int(a.get('samples', 32)), (int(fr[0]), int(fr[1])))
+    {'ostrel': ostrel, 'plintha': plintha}[a.get('brand', 'ostrel')](a.get('aspect', 'wide'), out, int(a.get('samples', 32)), (int(fr[0]), int(fr[1])))
     print('FRAMES', out)

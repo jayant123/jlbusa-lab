@@ -1,0 +1,34 @@
+{
+  "brand": "NUITHRA",
+  "vendor": "NUITHRA (concept)",
+  "products": [
+    {
+      "handle": "nuithra-amber-hour", "title": "NUITHRA Amber Hour", "type": "Eau de parfum",
+      "body": "<p>Bergamot and pink pepper open onto iris and labdanum. Amber, vanilla and tonka stay on the skin. Concept product by JLB USA. Demo data.</p>",
+      "options": [{ "name": "Size", "values": ["30 ml", "50 ml", "100 ml"] }],
+      "price": { "base": 0, "add": { "Size": { "30 ml": 95, "50 ml": 140, "100 ml": 210 } } },
+      "inventory": { "default": 40, "set": [] }, "grams": 400
+    },
+    {
+      "handle": "nuithra-fig-night", "title": "NUITHRA Fig Night", "type": "Eau de parfum",
+      "body": "<p>Fig leaf and cardamom open onto fig and violet. Cedar and white musk stay on the skin. Concept product by JLB USA. Demo data.</p>",
+      "options": [{ "name": "Size", "values": ["30 ml", "50 ml", "100 ml"] }],
+      "price": { "base": 0, "add": { "Size": { "30 ml": 95, "50 ml": 140, "100 ml": 210 } } },
+      "inventory": { "default": 40, "set": [] }, "grams": 400
+    },
+    {
+      "handle": "nuithra-smoke-garden", "title": "NUITHRA Smoke Garden", "type": "Eau de parfum",
+      "body": "<p>Black tea and saffron open onto rose and incense. Vetiver and birch stay on the skin. Concept product by JLB USA. Demo data.</p>",
+      "options": [{ "name": "Size", "values": ["30 ml", "50 ml", "100 ml"] }],
+      "price": { "base": 0, "add": { "Size": { "30 ml": 105, "50 ml": 155, "100 ml": 230 } } },
+      "inventory": { "default": 40, "set": [{ "when": { "Size": "100 ml" }, "qty": 0 }] }, "grams": 400
+    },
+    {
+      "handle": "nuithra-discovery-set", "title": "NUITHRA Discovery Set", "type": "Discovery set",
+      "body": "<p>All three fragrances in 8 ml sprays. Concept product by JLB USA. Demo data.</p>",
+      "options": [{ "name": "Size", "values": ["3 × 8 ml"] }],
+      "price": { "base": 38, "add": {} },
+      "inventory": { "default": 60, "set": [] }, "grams": 120
+    }
+  ]
+}
