@@ -176,9 +176,9 @@ def module(kind, m, lod):
         if kind == 'chaise':
             parts[-1].scale.z = 1.0
         if al:
-            parts.append(soft_box('arm_l', 0.0, arm, -D + 0.005, -0.005, 0.07, 0.64, 0.1, 0.012, up, s_, c, bulge=0.03))
+            parts.append(soft_box('arm_l', 0.0, arm, -D + 0.005, -0.005, 0.14, 0.64, 0.1, 0.012, up, s_, c, bulge=0.03))
         if ar:
-            parts.append(soft_box('arm_r', W - arm, W, -D + 0.005, -0.005, 0.07, 0.64, 0.1, 0.012, up, s_, c, bulge=0.03))
+            parts.append(soft_box('arm_r', W - arm, W, -D + 0.005, -0.005, 0.14, 0.64, 0.1, 0.012, up, s_, c, bulge=0.03))
     if DETAIL[0]:
         # Piping on the top seam of every seat cushion and along the base.
         seat_box = {'ottoman': (0.01, W - 0.01, -D + 0.01, -0.01), 'corner': (0.012, W - 0.27, -D + 0.02, -0.27)}.get(kind, (al + 0.012, W - ar - 0.012, -D + 0.02, -0.27))
@@ -199,10 +199,10 @@ def world_uv(o):
     bpy.ops.object.mode_set(mode='OBJECT')
 
 
-def mats(fabric='Boucle Chalk', scale=1.0):
+def mats(fabric='Boucle Chalk', scale=1.0, normal=0.8):
     tex, tint, rough = FABRICS[fabric]
     return {
-        'up': tex_material('upholstery', tex, tint, rough, scale=scale, normal_strength=0.8, gray=True),
+        'up': tex_material('upholstery', tex, tint, rough, scale=scale, normal_strength=normal, gray=True),
         'oak': C.material('oak_plinth', (0.06, 0.04, 0.03), roughness=0.45),
     }
 

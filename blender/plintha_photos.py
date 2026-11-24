@@ -108,8 +108,25 @@ def place_layout(proto, main, ret, ottomans):
     return 0.0, main_w, y_min, 0.0
 
 
+PHOTO_MATS = {'scale': 1.35, 'normal': 1.1}
+# Same weave scan for every fabric, as on the live page (the other scan is a checked cloth).
+for _f in ('Linen Sand', 'Velvet Ink'):
+    PS.FABRICS[_f] = ('Fabric085',) + PS.FABRICS[_f][1:]
+
+
+def velvet_sheen():
+    m = bpy.data.materials.get('upholstery')
+    if not m:
+        return
+    p = m.node_tree.nodes['Principled BSDF']
+    if 'Sheen Weight' in p.inputs:
+        p.inputs['Sheen Weight'].default_value = 1.0
+        p.inputs['Sheen Roughness'].default_value = 0.35
+        p.inputs['Sheen Tint'].default_value = (0.55, 0.62, 0.85, 1)
+
+
 def room_scene(fabric, preset):
-    m = PS.mats(fabric, scale=1.35)
+    m = PS.mats(fabric, scale=PHOTO_MATS['scale'], normal=PHOTO_MATS['normal'])
     proto = {k: PS.module(k, m, 'photo') for k in PS.FOOT}
     for o in proto.values():
         o.hide_render = True
@@ -165,7 +182,7 @@ def studio(bg):
 
 
 def oak_wood():
-    """Dark smoked oak with visible grain, for the plinths in photos."""
+    """Smoked oak: near-black brown with long grain lines and a little variation along the board."""
     m = bpy.data.materials.get('oak_plinth')
     if not m:
         return
@@ -173,29 +190,101 @@ def oak_wood():
     p = nt.nodes['Principled BSDF']
     tc = nt.nodes.new('ShaderNodeTexCoord')
     mp = nt.nodes.new('ShaderNodeMapping')
-    mp.inputs['Scale'].default_value = (0.25, 0.25, 1.0)
+    mp.inputs['Scale'].default_value = (0.3, 0.3, 1.0)  # stretch the grain along the board
     wave = nt.nodes.new('ShaderNodeTexWave')
     wave.wave_type = 'BANDS'
     wave.bands_direction = 'Z'
-    wave.inputs['Scale'].default_value = 30.0
-    wave.inputs['Distortion'].default_value = 6.0
-    wave.inputs['Detail'].default_value = 4.0
+    wave.inputs['Scale'].default_value = 70.0
+    wave.inputs['Distortion'].default_value = 9.0
+    wave.inputs['Detail'].default_value = 6.0
+    wave.inputs['Detail Scale'].default_value = 2.0
+    noise = nt.nodes.new('ShaderNodeTexNoise')
+    noise.inputs['Scale'].default_value = 6.0
+    mix = nt.nodes.new('ShaderNodeMath')
+    mix.operation = 'MULTIPLY'
     ramp = nt.nodes.new('ShaderNodeValToRGB')
-    ramp.color_ramp.elements[0].color = (0.018, 0.011, 0.007, 1)
-    ramp.color_ramp.elements[1].color = (0.06, 0.038, 0.024, 1)
+    ramp.color_ramp.elements[0].position = 0.15
+    ramp.color_ramp.elements[0].color = (0.006, 0.0035, 0.002, 1)
+    ramp.color_ramp.elements[1].position = 0.85
+    ramp.color_ramp.elements[1].color = (0.032, 0.019, 0.011, 1)
     nt.links.new(tc.outputs['Object'], mp.inputs['Vector'])
     nt.links.new(mp.outputs['Vector'], wave.inputs['Vector'])
-    nt.links.new(wave.outputs['Fac'], ramp.inputs['Fac'])
+    nt.links.new(mp.outputs['Vector'], noise.inputs['Vector'])
+    nt.links.new(wave.outputs['Fac'], mix.inputs[0])
+    nt.links.new(noise.outputs['Fac'], mix.inputs[1])
+    nt.links.new(mix.outputs[0], ramp.inputs['Fac'])
     nt.links.new(ramp.outputs['Color'], p.inputs['Base Color'])
     bump = nt.nodes.new('ShaderNodeBump')
-    bump.inputs['Strength'].default_value = 0.15
+    bump.inputs['Strength'].default_value = 0.35
+    bump.inputs['Distance'].default_value = 0.0004
     nt.links.new(wave.outputs['Fac'], bump.inputs['Height'])
     nt.links.new(bump.outputs['Normal'], p.inputs['Normal'])
-    p.inputs['Roughness'].default_value = 0.42
+    p.inputs['Roughness'].default_value = 0.38
+    if 'Coat Weight' in p.inputs:
+        p.inputs['Coat Weight'].default_value = 0.25
+        p.inputs['Coat Roughness'].default_value = 0.3
+
+
+def boucle_loops():
+    """Boucle: small round loops on top of the woven scan, as a bump layered over its normal map."""
+    m = bpy.data.materials.get('upholstery')
+    if not m:
+        return
+    nt = m.node_tree
+    p = nt.nodes['Principled BSDF']
+    nm = next((n for n in nt.nodes if n.type == 'NORMAL_MAP'), None)
+    tc = nt.nodes.new('ShaderNodeTexCoord')
+    vor = nt.nodes.new('ShaderNodeTexVoronoi')
+    vor.feature = 'SMOOTH_F1'
+    vor.inputs['Scale'].default_value = 520.0
+    vor.inputs['Randomness'].default_value = 0.9
+    nt.links.new(tc.outputs['Object'], vor.inputs['Vector'])
+    bump = nt.nodes.new('ShaderNodeBump')
+    bump.inputs['Strength'].default_value = 0.9
+    bump.inputs['Distance'].default_value = 0.0008
+    nt.links.new(vor.outputs['Distance'], bump.inputs['Height'])
+    if nm:
+        nt.links.new(nm.outputs['Normal'], bump.inputs['Normal'])
+    nt.links.new(bump.outputs['Normal'], p.inputs['Normal'])
+
+
+def rug_weave():
+    """The rug: a flat weave in two close tones with a fine rib and a soft band near the edge."""
+    m = bpy.data.materials.get('rug')
+    if not m:
+        return
+    nt = m.node_tree
+    p = nt.nodes['Principled BSDF']
+    tc = nt.nodes.new('ShaderNodeTexCoord')
+    rib = nt.nodes.new('ShaderNodeTexWave')
+    rib.wave_type = 'BANDS'
+    rib.bands_direction = 'X'
+    rib.inputs['Scale'].default_value = 260.0
+    rib.inputs['Distortion'].default_value = 0.4
+    checker = nt.nodes.new('ShaderNodeTexChecker')
+    checker.inputs['Scale'].default_value = 90.0
+    checker.inputs['Color1'].default_value = (0.32, 0.30, 0.27, 1)
+    checker.inputs['Color2'].default_value = (0.27, 0.25, 0.225, 1)
+    for n in (rib, checker):
+        nt.links.new(tc.outputs['Object'], n.inputs['Vector'])
+    mix = nt.nodes.new('ShaderNodeMix')
+    mix.data_type = 'RGBA'
+    mix.blend_type = 'MULTIPLY'
+    mix.inputs['Factor'].default_value = 0.25
+    nt.links.new(checker.outputs['Color'], mix.inputs[6])
+    nt.links.new(rib.outputs['Color'], mix.inputs[7])
+    nt.links.new(mix.outputs[2], p.inputs['Base Color'])
+    bump = nt.nodes.new('ShaderNodeBump')
+    bump.inputs['Strength'].default_value = 0.5
+    bump.inputs['Distance'].default_value = 0.001
+    nt.links.new(rib.outputs['Fac'], bump.inputs['Height'])
+    nt.links.new(bump.outputs['Normal'], p.inputs['Normal'])
+    p.inputs['Roughness'].default_value = 0.95
 
 
 def render(out):
     oak_wood()
+    rug_weave()
     os.makedirs(os.path.dirname(os.path.abspath(out)), exist_ok=True)
     bpy.context.scene.render.filepath = os.path.abspath(out)
     bpy.ops.render.render(write_still=True)
@@ -224,9 +313,19 @@ def main():
     elif kind == 'fabric':
         fabric = rest[0]
         bg = setup(samples, int(a.get('w', 1200)), int(a.get('h', 900)))
+        PHOTO_MATS.update(scale=5.0, normal=2.2)
         room_scene(fabric, 'straight')
-        daylight(bg)
-        camera((0.35, -1.42, 0.62), (0.75, -0.62, 0.43), 70, 2.8)
+        if fabric == 'Boucle Chalk':
+            boucle_loops()
+        if fabric == 'Velvet Ink':
+            velvet_sheen()
+        bg.inputs['Color'].default_value = (0.6, 0.57, 0.53, 1)
+        bg.inputs['Strength'].default_value = 0.12
+        # A low light from the side grazes the cushion so every thread casts a tiny shadow.
+        area('rake', (0.18, -1.62, 0.46), (math.radians(90), 0, math.radians(-38)), 0.3, 32, (1.0, 0.95, 0.88))
+        area('soft', (1.3, -1.9, 1.2), (math.radians(60), 0, math.radians(35)), 1.5, 40, (0.92, 0.95, 1.0))
+        # Close on the front edge of the middle seat cushion: the piped seam and the top surface.
+        camera((0.62, -1.24, 0.5), (0.72, -0.93, 0.425), 100, 8)
     elif kind == 'craft':
         bg = setup(samples, int(a.get('w', 1200)), int(a.get('h', 900)))
         room_scene('Wool Moss', 'straight')
@@ -236,7 +335,7 @@ def main():
         mod = rest[0]
         bg = setup(samples, int(a.get('w', 900)), int(a.get('h', 1125)))
         studio(bg)
-        m = PS.mats(a.get('fabric', 'Boucle Chalk'), scale=1.35)
+        m = PS.mats(a.get('fabric', 'Boucle Chalk'), scale=1.35, normal=1.1)
         o = PS.module(mod, m, 'photo')
         W, D = PS.FOOT[mod]
         t = math.radians(0)
