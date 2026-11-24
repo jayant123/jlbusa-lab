@@ -184,6 +184,7 @@ def build_ring(metal, stone, loc=(0, 0, 0), turn=25):
 
 def build_pendant(metal, stone, loc=(0, 0, 0), turn=0):
     o = J.pendant('high', mats_for(metal, stone))
+    FOCUS.setdefault('stone', o['stone'])  # in the hero the ring keeps the focus
     return place(o, (loc[0], loc[1], loc[2] + 0.0019), (math.radians(-90), 0, math.radians(turn)))
 
 
@@ -342,13 +343,15 @@ def stones_scene():
         st = J.brilliant(name, J.STONE_D, stone_mat(name, name.lower()))
         st.location = (x, 0, J.stone_dims(J.STONE_D)['pav'] * 0.5)
         st.rotation_euler = (math.radians(22), 0, math.radians(10 * k))
-    camera((0.0, -0.07, 0.045), (0.0, 0.0, 0.002), 100, 13)
+        if name == 'Sapphire':
+            FOCUS['stone'] = st
+    camera((0.0, -0.07, 0.045), (0.0, 0.0, 0.002), 100, 20)  # deep focus so all three stones are sharp
 
 
 def claws_scene():
     """A macro from above and to the side: the four claws holding the stone."""
     build_ring('Yellow gold', 'Diamond', (0, 0, 0), 45)
-    camera((0.006, -0.018, 0.046), (0, 0, 0.0238), 100, 14)
+    camera((0.006, -0.018, 0.046), (0, 0, 0.0238), 100, 40)  # macro: stop down so the whole crown is sharp
 
 
 def main():
@@ -360,6 +363,7 @@ def main():
     set_and_lights(sparks=not ((mode == 'product' and a.get('piece') == 'hoops') or mode in ('workshop', 'dish', 'hero')), dim={'workshop': 0.25, 'dish': 0.35}.get(mode, 1.0))
     if mode in ('workshop', 'dish', 'stones', 'claws'):
         {'workshop': workshop_scene, 'dish': dish_scene, 'stones': stones_scene, 'claws': claws_scene}[mode]()
+        focus_on_stone()  # every scene keeps its stone sharp
         render_settings(int(a.get('w', 1200)), int(a.get('h', 900)), samples)
     elif mode == 'hero':
         build_ring('Yellow gold', 'Diamond', (0.014, 0.0, 0), 30)
@@ -379,7 +383,8 @@ def main():
             focus_on_stone()
         elif piece == 'pendant':
             build_pendant(metal, stone)
-            camera((0.0, -0.11, 0.06), (0, 0.006, 0.002), 100, 8.0)
+            camera((0.0, -0.11, 0.06), (0, 0.006, 0.002), 100, 11.0)
+            focus_on_stone()
         else:
             build_hoops(metal, size=a.get('size', 'Small'))
             camera((0.0, -0.185, 0.055), (0.0, 0.0, 0.0115), 90, 16.0)

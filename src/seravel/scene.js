@@ -234,14 +234,35 @@ export async function createSeravelScene(canvas, { tier, reducedMotion, onReady,
   }
 
   // Phones: the ring sits in the top half, above the controls.
+  // Phones: the canvas sits in its own stage above the controls, so the picture is centered (no offset) and the
+  // camera backs off until the part of interest fits that stage. Wide screens keep the ring right of the panel.
+  const phone = () => canvas.parentElement?.classList.contains('s-viewport');
   function frame() {
+    stage.resize();
     const w = canvas.clientWidth, h = canvas.clientHeight;
-    if (w > 900) camera.setViewOffset(w, h, -w * 0.2, 0, w, h); else camera.setViewOffset(w, h, 0, h * 0.22, w, h);
+    if (phone()) camera.clearViewOffset();
+    else if (w > 900) camera.setViewOffset(w, h, -w * 0.2, 0, w, h);
+    else camera.setViewOffset(w, h, 0, h * 0.22, w, h);
     camera.updateProjectionMatrix();
   }
   window.addEventListener('resize', frame);
   frame();
-  const far = () => (canvas.clientWidth < 700 ? (view === "front" ? 2.2 : 1.6) : 1);
+  // What each view must show in full, as a sphere: [center, radius].
+  const FIT = {
+    front: [[0, top * 0.5, 0], top * 0.58],
+    macro: [[0, top - 0.04, 0], 0.08],
+    inside: [[0, cy - bandR * 0.5, 0], bandR * 1.2, [0, 0.62, 0.78]],  // look down onto the lower inside of the band
+  };
+  const fitPos = new THREE.Vector3(), fitDir = new THREE.Vector3();
+  function fitView(v) {
+    const [p, g] = VIEW[v], [c, r, dir] = FIT[v] || [g, 0.1];
+    const vf = THREE.MathUtils.degToRad(camera.fov), hf = 2 * Math.atan(Math.tan(vf / 2) * camera.aspect);
+    const dist = (r / Math.sin(Math.min(vf, hf) / 2)) * 1.06;
+    if (dir) fitDir.set(...dir).normalize(); else fitDir.set(...p).sub(new THREE.Vector3(...g)).normalize();
+    fitPos.set(...c).addScaledVector(fitDir, dist);
+    return [fitPos, c];
+  }
+  const far = () => 1;
 
   const camPos = new THREE.Vector3(...VIEW.front[0]), camLook = new THREE.Vector3(...VIEW.front[1]);
   const tmp = new THREE.Vector3(), tmp2 = new THREE.Vector3(), view3 = new THREE.Vector3(), lightDirs = [new THREE.Vector3(-0.6, 0.6, 0.5).normalize(), new THREE.Vector3(0.7, 0.4, 0.3).normalize(), new THREE.Vector3(0, 1, 0.2).normalize()];
@@ -253,9 +274,15 @@ export async function createSeravelScene(canvas, { tier, reducedMotion, onReady,
     holder.rotation.y += (yawT - holder.rotation.y) * (view === 'inside' ? sm(4) : 1);
     tilt = [tilt[0] + (ptr[0] - tilt[0]) * sm(3), tilt[1] + (ptr[1] - tilt[1]) * sm(3)];
 
-    const [p, g] = VIEW[view];
-    tmp.set(...g);
-    tmp2.set(...p).sub(tmp).multiplyScalar(far()).add(tmp);
+    if (phone()) {
+      const [fp, fc] = fitView(view);
+      tmp.set(...fc);
+      tmp2.copy(fp);
+    } else {
+      const [p, g] = VIEW[view];
+      tmp.set(...g);
+      tmp2.set(...p).sub(tmp).multiplyScalar(far()).add(tmp);
+    }
     tmp2.x += tilt[0] * -0.03; tmp2.y += tilt[1] * -0.02;
     camPos.lerp(tmp2, sm(2.6));
     camLook.lerp(tmp, sm(2.6));
@@ -290,6 +317,7 @@ export async function createSeravelScene(canvas, { tier, reducedMotion, onReady,
   return {
     setMetal, setStone, setEngraving,
     setView(v) { if (VIEW[v]) view = v; },
+    reframe: frame,
     setActive(on) { if (on !== active) { active = on; on ? stage.start() : stage.stop(); } },
   };
 }

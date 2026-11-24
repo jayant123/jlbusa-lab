@@ -18,6 +18,7 @@ const params = new URLSearchParams(location.search);
 const RING = 'seravel-solace-ring';
 const money = (n, c = 'USD') => new Intl.NumberFormat('en-US', { style: 'currency', currency: c, maximumFractionDigits: 0 }).format(n);
 const slug = (h) => h.replace('seravel-', '');
+const STILLS_V = 'cf83454b'; // bump when the photos change so browsers fetch the new files
 
 const ring = { Metal: 'Yellow gold', Stone: 'Diamond', size: '7', engraving: '' };
 const other = { 'seravel-halo-pendant': { Metal: 'Yellow gold', Chain: '18 in' }, 'seravel-tide-hoops': { Metal: 'Yellow gold', Size: 'Small' } };
@@ -100,7 +101,6 @@ function setView(v) {
 $$('.s-view').forEach((b) => b.addEventListener('click', () => {
   setView(b.dataset.view);
   // Phones: the panel covers the lower screen. Bring the ring back into view when a view is chosen.
-  if (innerWidth < 700) $('#design').scrollIntoView({ behavior: reduced ? 'auto' : 'smooth' });
 }));
 
 // --- Collection grid and the other pieces -------------------------------------------
@@ -109,7 +109,7 @@ const fromPrice = (h) => {
   return vs.length ? `From ${money(Math.min(...vs.map((v) => v.price)), vs[0].currencyCode)}` : '';
 };
 $('#grid').innerHTML = Object.entries(PIECES).map(([h, p]) => `<li class="s-card" data-h="${h}">
-  <img src="/seravel/stills/${slug(h)}.webp" alt="The ${p.name}. ${p.line}" loading="lazy" width="800" height="1000">
+  <img src="/seravel/stills/${slug(h)}.webp?v=${STILLS_V}" alt="The ${p.name}. ${p.line}" loading="lazy" width="800" height="1000">
   <h3>${p.name}</h3><p class="s-card-kind">${p.kind} · 18k gold</p><p class="s-card-line">${p.line}</p>
   <p class="s-card-price" data-from="${h}"></p>
   <a class="s-card-btn" href="${h === RING ? '#design' : '#pieces'}">${h === RING ? 'Design your ring' : `View the ${p.name}`}</a></li>`).join('');
@@ -117,7 +117,7 @@ $('#grid').innerHTML = Object.entries(PIECES).map(([h, p]) => `<li class="s-card
 const OPTION = { 'seravel-halo-pendant': ['Metal', 'Chain'], 'seravel-tide-hoops': ['Metal', 'Size'] };
 const VALUES = { Metal: Object.keys(METALS), Chain: ['16 in', '18 in', '20 in'], Size: ['Small', 'Medium'] };
 $('#piece-list').innerHTML = Object.keys(other).map((h) => `<article class="s-piece" data-h="${h}" aria-labelledby="p-${slug(h)}">
-  <img src="/seravel/stills/${slug(h)}.webp" alt="The ${PIECES[h].name}." loading="lazy" width="800" height="1000">
+  <img src="/seravel/stills/${slug(h)}.webp?v=${STILLS_V}" alt="The ${PIECES[h].name}." loading="lazy" width="800" height="1000">
   <div class="s-piece-info"><h3 id="p-${slug(h)}">${PIECES[h].name}</h3><p>${PIECES[h].line}</p>
   ${OPTION[h].map((o) => `<fieldset class="s-group"><legend>${o === 'Size' ? 'Hoop size' : o}</legend><div class="s-chips s-chips-sm">${VALUES[o].map((v) => `<label class="s-chip"><input type="radio" name="${slug(h)}-${o}" value="${v}" data-o="${o}"${other[h][o] === v ? ' checked' : ''}>${o === 'Metal' ? `<span class="s-swatch" style="--c:${METALS[v].color}"></span>` : ''}<span class="s-chip-name">${v}</span></label>`).join('')}</div></fieldset>`).join('')}
   <p class="s-piece-price" data-piece-price="${h}"></p>
@@ -174,6 +174,13 @@ function render() {
 }
 
 // --- 3D ---------------------------------------------------------------------------
+// Phones get the ring in its own stage above the controls. Wide screens draw it behind the page.
+const narrowMq = matchMedia('(max-width: 700px)');
+function placeCanvas() {
+  const gl = $('#gl'), home = narrowMq.matches ? $('.s-viewport') : $('.s-stage');
+  document.documentElement.style.setProperty('--s-hdr', `${$('.s-top').offsetHeight}px`);
+  if (gl.parentElement !== home) { home.appendChild(gl); scene?.reframe(); }
+}
 function fallback() { body.classList.add('no-gl'); body.classList.remove('gl-ready'); }
 async function start3d() {
   const device = readDevice();
@@ -186,6 +193,8 @@ async function start3d() {
       onReady: () => requestAnimationFrame(() => body.classList.add('gl-ready')),
     });
     if (!scene) return fallback();
+    placeCanvas();
+    window.addEventListener('resize', placeCanvas);
     scene.setMetal(ring.Metal);
     scene.setStone(ring.Stone);
     scene.setEngraving(ring.engraving);
