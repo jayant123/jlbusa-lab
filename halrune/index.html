@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>HALRUNE Headphones and Speakers | Concept store by JLB USA</title>
+<meta name="description" content="HALRUNE is a fictional audio maker. This concept store by JLB USA has a 3D listening room with live music on a live Shopify catalog and cart.">
+<meta name="theme-color" content="#0f1011">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geologica:wght@300;400;500;600&family=Hanken+Grotesk:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Geologica:wght@300;400;500;600&family=Hanken+Grotesk:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet"></noscript>
+<link rel="preload" as="image" href="/halrune/stills/hero.webp" fetchpriority="high">
+<script>document.documentElement.classList.add('js')</script>
+<link rel="stylesheet" href="/src/kit/kit.css">
+<link rel="stylesheet" href="/src/halrune/style.css">
+</head>
+<body data-product="halrune-one">
+<p class="h-announce">Free shipping in the US. Try anything at home for 30 days.</p>
+<header class="h-top">
+  <a class="h-mark" href="#top" aria-label="HALRUNE home">HALRUNE</a>
+  <nav class="h-nav" aria-label="Main">
+    <a href="#range">Shop</a><a href="#room">Listening room</a><a href="#drivers">How it is made</a><a href="#response">Sound</a><a href="#journal">Journal</a>
+  </nav>
+  <details class="h-menu">
+    <summary>Menu</summary>
+    <nav aria-label="Menu"><a href="#range">Shop</a><a href="#room">Listening room</a><a href="#drivers">How it is made</a><a href="#response">Sound</a><a href="#journal">Journal</a><a href="#faq">Help</a></nav>
+  </details>
+  <span class="h-concept">Concept by JLB USA</span>
+</header>
+
+<main id="top">
+  <section class="h-hero">
+    <img class="h-hero-photo" src="/halrune/stills/hero.webp" alt="HALRUNE speakers, headphones on a stand and earbuds on a walnut credenza in a room with oak slats." width="2400" height="1500" fetchpriority="high">
+    <div class="h-hero-copy">
+      <p class="h-eyebrow">Headphones · Speakers · Earbuds</p>
+      <h1>Made for listening at home</h1>
+      <p class="h-lede">Wood, steel and paper cones. Built by a small team and tuned by ear.</p>
+      <div class="h-ctas"><a class="h-btn" href="#range">Shop the range</a><a class="h-btn h-btn-ghost" href="#room">Visit the listening room</a></div>
+    </div>
+  </section>
+
+  <section class="h-range h-light" id="range" aria-labelledby="range-title">
+    <div class="h-wrap">
+      <div class="h-head"><p class="h-ch">Ch 01</p><h2 id="range-title">The range</h2><p>Three products. Each one is built to last and easy to repair.</p></div>
+      <ul class="h-grid" id="grid"></ul>
+    </div>
+  </section>
+
+  <section class="h-room" id="room" data-3d aria-labelledby="room-title">
+    <div class="h-stage" aria-hidden="true">
+      <img class="h-poster halrune-still" src="/halrune/stills/hero.webp" alt="" width="2400" height="1500" loading="lazy">
+      <canvas id="gl"></canvas>
+    </div>
+    <div class="h-panel">
+      <p class="h-ch">Ch 02</p>
+      <h2 id="room-title">The listening room</h2>
+      <div class="h-player">
+        <button type="button" class="h-play" id="play" aria-pressed="false">Play</button>
+        <button type="button" class="h-mute" id="mute" aria-pressed="false">Mute</button>
+        <div class="h-meter" aria-hidden="true"><span id="meter-bass"></span><span id="meter-mid"></span><span id="meter-treble"></span></div>
+      </div>
+      <p class="h-small">An original piece made live in your browser. It plays only when you press Play.</p>
+      <fieldset class="h-group"><legend>Product</legend><div class="h-products" id="products"></div></fieldset>
+      <fieldset class="h-group"><legend id="opt-name">Finish</legend><div class="h-finishes" id="finishes"></div></fieldset>
+      <button type="button" class="h-explode" id="explode" aria-pressed="false">Take the headphones apart</button>
+      <div class="h-detail">
+        <p class="h-kind" data-kind></p>
+        <h3 data-name>HALRUNE One</h3>
+        <p class="h-price"><span data-testid="room-price" id="room-price"></span></p>
+        <p class="h-story" data-story></p>
+        <dl class="h-specs" id="specs"></dl>
+        <button type="button" class="h-btn h-room-add" id="room-add" disabled>Add to cart</button>
+        <p class="h-status" id="status" role="status" aria-live="polite"></p>
+      </div>
+    </div>
+  </section>
+
+  <section class="h-drivers" id="drivers" aria-labelledby="drivers-title">
+    <div class="h-wrap h-split">
+      <img class="h-img" src="/halrune/stills/exploded.webp" alt="The HALRUNE One taken apart: pads, baffle, driver, magnet and grille in a line." loading="lazy" width="1200" height="900">
+      <div>
+        <p class="h-ch">Ch 03</p>
+        <h2 id="drivers-title">How we make a driver</h2>
+        <ol class="h-steps">
+          <li><strong>The diaphragm</strong> We press each one from a thin sheet in a heated mold. It is light and stiff. That is what keeps the sound clean.</li>
+          <li><strong>The motor</strong> A neodymium magnet sits behind the coil. We glue it by hand and let it cure overnight.</li>
+          <li><strong>Matching</strong> We measure every driver. Pairs go into the same headphones only when they match within half a decibel.</li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <section class="h-wood h-light" id="wood" aria-labelledby="wood-title">
+    <div class="h-wrap h-split">
+      <div>
+        <p class="h-ch">Ch 04</p>
+        <h2 id="wood-title">The wood</h2>
+        <p>We use walnut, ash and oak from two mills in Pennsylvania. We visit both each year. The cups are turned from solid blocks. The speaker cabinets are veneered by hand.</p>
+        <p>No two pieces have the same grain. Yours will look a little different from the photos.</p>
+        <p>Offcuts become the trays we pack the Buds in.</p>
+      </div>
+      <img class="h-img" src="/halrune/stills/wood.webp" alt="Close view of the walnut grain on a HALRUNE One cup and its steel yoke." loading="lazy" width="1200" height="900">
+    </div>
+  </section>
+
+  <section class="h-response" id="response" aria-labelledby="resp-title">
+    <div class="h-wrap">
+      <div class="h-head"><p class="h-ch">Ch 05</p><h2 id="resp-title">How they sound</h2><p>Each line shows how loud a product plays from deep bass to high treble.</p></div>
+      <div class="h-tabs" role="group" aria-label="Response chart product" id="resp-tabs"></div>
+      <div class="h-chart" id="chart"></div>
+      <p class="h-small">Demo data for a fictional brand. This is not a measurement.</p>
+    </div>
+  </section>
+
+  <section class="h-setup h-light" id="setup" aria-labelledby="setup-title">
+    <div class="h-wrap">
+      <div class="h-head"><p class="h-ch">Ch 06</p><h2 id="setup-title">Setting up the Monitors</h2><p>Ten minutes and a tape measure.</p></div>
+      <ol class="h-setup-steps">
+        <li><span>1</span><h3>Make a triangle</h3><p>Put the speakers as far apart as you sit from them. Turn them in a little toward you.</p></li>
+        <li><span>2</span><h3>Lift them up</h3><p>The tweeters should be at ear height. Stands or books both work.</p></li>
+        <li><span>3</span><h3>Leave a gap</h3><p>Keep the backs 20 cm from the wall. Closer gives more bass. Further gives a cleaner sound.</p></li>
+      </ol>
+      <div class="h-warranty">
+        <h3>Warranty</h3>
+        <p>Two years on parts and labor. Five years on the drivers. Pads and ear tips wear out with use. We sell them as spares. You can fit them yourself with no tools.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="h-reviews" aria-labelledby="rev-title">
+    <div class="h-wrap">
+      <div class="h-head"><p class="h-ch">Ch 07</p><h2 id="rev-title">What customers say</h2><p class="h-small">Sample reviews. HALRUNE is a concept brand.</p></div>
+      <ul class="h-rev">
+        <li><p class="h-stars" aria-label="5 out of 5 stars">★★★★★</p><blockquote>The One is the first open-back pair I can wear all evening. The wood cups are lovely to hold.</blockquote><p class="h-who">Jonas B. · HALRUNE One</p></li>
+        <li><p class="h-stars" aria-label="5 out of 5 stars">★★★★★</p><blockquote>The Monitors filled my small study without any fuss. I followed the setup guide and that was it.</blockquote><p class="h-who">Rachel T. · HALRUNE Monitor</p></li>
+        <li><p class="h-stars" aria-label="4 out of 5 stars">★★★★☆</p><blockquote>Good sound and the ceramic case feels great. I wish the case were a little smaller.</blockquote><p class="h-who">Marco D. · HALRUNE Buds</p></li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="h-journal h-light" id="journal" aria-labelledby="jr-title">
+    <div class="h-wrap">
+      <div class="h-head"><p class="h-ch">Ch 08</p><h2 id="jr-title">From the journal</h2><p>Notes on listening and on looking after your gear.</p></div>
+      <ul class="h-posts">
+        <li><img src="/halrune/stills/journal-1.webp" alt="" loading="lazy" width="1200" height="900"><h3>Open-back or closed-back?</h3><p>Open-back headphones let sound out. That is why they feel so spacious.</p>
+          <details><summary>Read more</summary><p>Closed cups trap sound and block the room. That helps on a train. At home the open design sounds more like speakers in front of you. People nearby will hear a little of your music.</p></details></li>
+        <li><img src="/halrune/stills/journal-2.webp" alt="" loading="lazy" width="1200" height="900"><h3>Caring for wood cups</h3><p>Wipe them with a dry cloth. Once a year use a drop of furniture oil.</p>
+          <details><summary>Read more</summary><p>Keep the cups away from radiators and direct sun. Wood moves with the seasons. A small change in color over the years is normal. It is part of the charm.</p></details></li>
+        <li><img src="/halrune/stills/journal-3.webp" alt="" loading="lazy" width="1200" height="900"><h3>Where to put your speakers</h3><p>Most rooms sound better with the speakers off the back wall.</p>
+          <details><summary>Read more</summary><p>Corners make bass boom. Bare walls make echoes. A rug and a bookshelf help a lot. Move the speakers a few centimeters at a time and listen again.</p></details></li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="h-faq" id="faq" aria-labelledby="faq-title">
+    <div class="h-wrap h-narrow">
+      <h2 id="faq-title">Questions</h2>
+      <details><summary>Can I try the products at home?</summary><p>Yes. You have 30 days to return anything in its box. We pay for the return label.</p></details>
+      <details><summary>Do the Monitors need an amplifier?</summary><p>No. The amplifiers are built in. Plug in power and a source and you are ready.</p></details>
+      <details><summary>Will the One work with my phone?</summary><p>Yes. The cable has a 3.5 mm plug. Use an adapter if your phone has no headphone jack.</p></details>
+      <details><summary>Can I replace the ear pads?</summary><p>Yes. They pull off by hand. New pads clip on in a few seconds.</p></details>
+      <details><summary>Where do you ship?</summary><p>We ship to all 50 states. Orders leave our workshop in 1 to 2 business days.</p></details>
+    </div>
+  </section>
+
+  <section class="h-news h-light" aria-labelledby="news-title">
+    <div class="h-wrap h-narrow">
+      <h2 id="news-title">Notes from the workshop</h2>
+      <p>One email a month. New finishes, journal posts and listening tips.</p>
+      <form class="h-news-form" id="news-form" novalidate>
+        <label for="news-email">Email address</label>
+        <div><input id="news-email" type="email" autocomplete="email" required placeholder="you@example.com"><button type="submit" class="h-btn h-btn-dark">Subscribe</button></div>
+        <p class="h-news-msg" id="news-msg" role="status" aria-live="polite"></p>
+      </form>
+    </div>
+  </section>
+</main>
+
+<footer class="h-foot">
+  <div class="h-wrap h-foot-cols">
+    <div><p class="h-mark">HALRUNE</p><p>Headphones and speakers for home.</p><p>(404) 555-0162</p></div>
+    <div><h3>Shop</h3><a href="#range">Headphones</a><a href="#range">Speakers</a><a href="#range">Earbuds</a></div>
+    <div><h3>Help</h3><a href="#setup">Setup</a><a href="#setup">Warranty</a><a href="#faq">Questions</a></div>
+    <div><h3>About</h3><a href="#drivers">How it is made</a><a href="#wood">The wood</a><a href="#journal">Journal</a></div>
+  </div>
+  <p class="concept-foot">Concept by JLB USA. Fictional brand. Products and prices are demo data. <a href="https://jlbusa.com/">jlbusa.com</a></p>
+</footer>
+
+<div class="h-bar" role="region" aria-label="Purchase">
+  <div class="h-bar-item"><span class="h-bar-name" id="bar-name">HALRUNE One</span><span class="h-bar-opt" id="bar-opt">Walnut</span></div>
+  <span class="h-bar-price" data-testid="price" id="price"></span>
+  <button type="button" class="h-add" id="add" disabled>Add to cart</button>
+  <button type="button" class="h-checkout" id="checkout">Checkout (0)</button>
+</div>
+<div id="panel-root"></div>
+<script type="module" src="/src/halrune/main.js"></script>
+</body>
+</html>

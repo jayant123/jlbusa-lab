@@ -10,6 +10,7 @@ export default defineConfig({
         ostrel: resolve(import.meta.dirname, 'ostrel/index.html'),
         plintha: resolve(import.meta.dirname, 'plintha/index.html'),
         nuithra: resolve(import.meta.dirname, 'nuithra/index.html'),
+        halrune: resolve(import.meta.dirname, 'halrune/index.html'),
       },
     },
   },
