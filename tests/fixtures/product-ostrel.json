@@ -1,0 +1,629 @@
+{
+ "data": {
+  "product": {
+   "id": "gid://shopify/Product/1",
+   "title": "OSTREL Meridian 40",
+   "handle": "ostrel-meridian-40",
+   "options": [
+    {
+     "name": "Dial",
+     "optionValues": [
+      {
+       "name": "Obsidian"
+      },
+      {
+       "name": "Champagne"
+      },
+      {
+       "name": "Glacier"
+      }
+     ]
+    },
+    {
+     "name": "Case",
+     "optionValues": [
+      {
+       "name": "Brushed platinum"
+      },
+      {
+       "name": "Polished steel"
+      },
+      {
+       "name": "Black ceramic"
+      }
+     ]
+    },
+    {
+     "name": "Strap",
+     "optionValues": [
+      {
+       "name": "Black calf"
+      },
+      {
+       "name": "Cognac calf"
+      },
+      {
+       "name": "Steel bracelet"
+      }
+     ]
+    }
+   ],
+   "variants": {
+    "nodes": [
+     {
+      "id": "gid://shopify/ProductVariant/1001",
+      "availableForSale": true,
+      "price": {
+       "amount": "6400.0",
+       "currencyCode": "USD"
+      },
+      "selectedOptions": [
+       {
+        "name": "Dial",
+        "value": "Obsidian"
+       },
+       {
+        "name": "Case",
+        "value": "Brushed platinum"
+       },
+       {
+        "name": "Strap",
+        "value": "Black calf"
+       }
+      ]
+     },
+     {
+      "id": "gid://shopify/ProductVariant/1002",
+      "availableForSale": true,
+      "price": {
+       "amount": "6400.0",
+       "currencyCode": "USD"
+      },
+      "selectedOptions": [
+       {
+        "name": "Dial",
+        "value": "Obsidian"
+       },
+       {
+        "name": "Case",
+        "value": "Brushed platinum"
+       },
+       {
+        "name": "Strap",
+        "value": "Cognac calf"
+       }
+      ]
+     },
+     {
+      "id": "gid://shopify/ProductVariant/1003",
+      "availableForSale": true,
+      "price": {
+       "amount": "7050.0",
+       "currencyCode": "USD"
+      },
+      "selectedOptions": [
+       {
+        "name": "Dial",
+        "value": "Obsidian"
+       },
+       {
+        "name": "Case",
+        "value": "Brushed platinum"
+       },
+       {
+        "name": "Strap",
+        "value": "Steel bracelet"
+       }
+      ]
+     },
+     {
+      "id": "gid://shopify/ProductVariant/1004",
+      "availableForSale": true,
+      "price": {
+       "amount": "4800.0",
+       "currencyCode": "USD"
+      },
+      "selectedOptions": [
+       {
+        "name": "Dial",
+        "value": "Obsidian"
+       },
+       {
+        "name": "Case",
+        "value": "Polished steel"
+       },
+       {
+        "name": "Strap",
+        "value": "Black calf"
+       }
+      ]
+     },
+     {
+      "id": "gid://shopify/ProductVariant/1005",
+      "availableForSale": true,
+      "price": {
+       "amount": "4800.0",
+       "currencyCode": "USD"
+      },
+      "selectedOptions": [
+       {
+        "name": "Dial",
+        "value": "Obsidian"
+       },
+       {
+        "name": "Case",
+        "value": "Polished steel"
+       },
+       {
+        "name": "Strap",
+        "value": "Cognac calf"
+       }
+      ]
+     },
+     {
+      "id": "gid://shopify/ProductVariant/1006",
+      "availableForSale": true,
+      "price": {
+       "amount": "5450.0",
+       "currencyCode": "USD"
+      },
+      "selectedOptions": [
+       {
+        "name": "Dial",
+        "value": "Obsidian"
+       },
+       {
+        "name": "Case",
+        "value": "Polished steel"
+       },
+       {
+        "name": "Strap",
+        "value": "Steel bracelet"
+       }
+      ]
+     },
+     {
+      "id": "gid://shopify/ProductVariant/1007",
+      "availableForSale": true,
+      "price": {
+       "amount": "5600.0",
+       "currencyCode": "USD"
+      },
+      "selectedOptions": [
+       {
+        "name": "Dial",
+        "value": "Obsidian"
+       },
+       {
+        "name": "Case",
+        "value": "Black ceramic"
+       },
+       {
+        "name": "Strap",
+        "value": "Black calf"
+       }
+      ]
+     },
+     {
+      "id": "gid://shopify/ProductVariant/1008",
+      "availableForSale": true,
+      "price": {
+       "amount": "5600.0",
+       "currencyCode": "USD"
+      },
+      "selectedOptions": [
+       {
+        "name": "Dial",
+        "value": "Obsidian"
+       },
+       {
+        "name": "Case",
+        "value": "Black ceramic"
+       },
+       {
+        "name": "Strap",
+        "value": "Cognac calf"
+       }
+      ]
+     },
+     {
+      "id": "gid://shopify/ProductVariant/1009",
+      "availableForSale": true,
+      "price": {
+       "amount": "6250.0",
+       "currencyCode": "USD"
+      },
+      "selectedOptions": [
+       {
+        "name": "Dial",
+        "value": "Obsidian"
+       },
+       {
+        "name": "Case",
+        "value": "Black ceramic"
+       },
+       {
+        "name": "Strap",
+        "value": "Steel bracelet"
+       }
+      ]
+     },
+     {
+      "id": "gid://shopify/ProductVariant/1010",
+      "availableForSale": true,
+      "price": {
+       "amount": "6400.0",
+       "currencyCode": "USD"
+      },
+      "selectedOptions": [
+       {
+        "name": "Dial",
+        "value": "Champagne"
+       },
+       {
+        "name": "Case",
+        "value": "Brushed platinum"
+       },
+       {
+        "name": "Strap",
+        "value": "Black calf"
+       }
+      ]
+     },
+     {
+      "id": "gid://shopify/ProductVariant/1011",
+      "availableForSale": true,
+      "price": {
+       "amount": "6400.0",
+       "currencyCode": "USD"
+      },
+      "selectedOptions": [
+       {
+        "name": "Dial",
+        "value": "Champagne"
+       },
+       {
+        "name": "Case",
+        "value": "Brushed platinum"
+       },
+       {
+        "name": "Strap",
+        "value": "Cognac calf"
+       }
+      ]
+     },
+     {
+      "id": "gid://shopify/ProductVariant/1012",
+      "availableForSale": true,
+      "price": {
+       "amount": "7050.0",
+       "currencyCode": "USD"
+      },
+      "selectedOptions": [
+       {
+        "name": "Dial",
+        "value": "Champagne"
+       },
+       {
+        "name": "Case",
+        "value": "Brushed platinum"
+       },
+       {
+        "name": "Strap",
+        "value": "Steel bracelet"
+       }
+      ]
+     },
+     {
+      "id": "gid://shopify/ProductVariant/1013",
+      "availableForSale": true,
+      "price": {
+       "amount": "4800.0",
+       "currencyCode": "USD"
+      },
+      "selectedOptions": [
+       {
+        "name": "Dial",
+        "value": "Champagne"
+       },
+       {
+        "name": "Case",
+        "value": "Polished steel"
+       },
+       {
+        "name": "Strap",
+        "value": "Black calf"
+       }
+      ]
+     },
+     {
+      "id": "gid://shopify/ProductVariant/1014",
+      "availableForSale": true,
+      "price": {
+       "amount": "4800.0",
+       "currencyCode": "USD"
+      },
+      "selectedOptions": [
+       {
+        "name": "Dial",
+        "value": "Champagne"
+       },
+       {
+        "name": "Case",
+        "value": "Polished steel"
+       },
+       {
+        "name": "Strap",
+        "value": "Cognac calf"
+       }
+      ]
+     },
+     {
+      "id": "gid://shopify/ProductVariant/1015",
+      "availableForSale": true,
+      "price": {
+       "amount": "5450.0",
+       "currencyCode": "USD"
+      },
+      "selectedOptions": [
+       {
+        "name": "Dial",
+        "value": "Champagne"
+       },
+       {
+        "name": "Case",
+        "value": "Polished steel"
+       },
+       {
+        "name": "Strap",
+        "value": "Steel bracelet"
+       }
+      ]
+     },
+     {
+      "id": "gid://shopify/ProductVariant/1016",
+      "availableForSale": true,
+      "price": {
+       "amount": "5600.0",
+       "currencyCode": "USD"
+      },
+      "selectedOptions": [
+       {
+        "name": "Dial",
+        "value": "Champagne"
+       },
+       {
+        "name": "Case",
+        "value": "Black ceramic"
+       },
+       {
+        "name": "Strap",
+        "value": "Black calf"
+       }
+      ]
+     },
+     {
+      "id": "gid://shopify/ProductVariant/1017",
+      "availableForSale": true,
+      "price": {
+       "amount": "5600.0",
+       "currencyCode": "USD"
+      },
+      "selectedOptions": [
+       {
+        "name": "Dial",
+        "value": "Champagne"
+       },
+       {
+        "name": "Case",
+        "value": "Black ceramic"
+       },
+       {
+        "name": "Strap",
+        "value": "Cognac calf"
+       }
+      ]
+     },
+     {
+      "id": "gid://shopify/ProductVariant/1018",
+      "availableForSale": true,
+      "price": {
+       "amount": "6250.0",
+       "currencyCode": "USD"
+      },
+      "selectedOptions": [
+       {
+        "name": "Dial",
+        "value": "Champagne"
+       },
+       {
+        "name": "Case",
+        "value": "Black ceramic"
+       },
+       {
+        "name": "Strap",
+        "value": "Steel bracelet"
+       }
+      ]
+     },
+     {
+      "id": "gid://shopify/ProductVariant/1019",
+      "availableForSale": true,
+      "price": {
+       "amount": "6400.0",
+       "currencyCode": "USD"
+      },
+      "selectedOptions": [
+       {
+        "name": "Dial",
+        "value": "Glacier"
+       },
+       {
+        "name": "Case",
+        "value": "Brushed platinum"
+       },
+       {
+        "name": "Strap",
+        "value": "Black calf"
+       }
+      ]
+     },
+     {
+      "id": "gid://shopify/ProductVariant/1020",
+      "availableForSale": true,
+      "price": {
+       "amount": "6400.0",
+       "currencyCode": "USD"
+      },
+      "selectedOptions": [
+       {
+        "name": "Dial",
+        "value": "Glacier"
+       },
+       {
+        "name": "Case",
+        "value": "Brushed platinum"
+       },
+       {
+        "name": "Strap",
+        "value": "Cognac calf"
+       }
+      ]
+     },
+     {
+      "id": "gid://shopify/ProductVariant/1021",
+      "availableForSale": true,
+      "price": {
+       "amount": "7050.0",
+       "currencyCode": "USD"
+      },
+      "selectedOptions": [
+       {
+        "name": "Dial",
+        "value": "Glacier"
+       },
+       {
+        "name": "Case",
+        "value": "Brushed platinum"
+       },
+       {
+        "name": "Strap",
+        "value": "Steel bracelet"
+       }
+      ]
+     },
+     {
+      "id": "gid://shopify/ProductVariant/1022",
+      "availableForSale": true,
+      "price": {
+       "amount": "4800.0",
+       "currencyCode": "USD"
+      },
+      "selectedOptions": [
+       {
+        "name": "Dial",
+        "value": "Glacier"
+       },
+       {
+        "name": "Case",
+        "value": "Polished steel"
+       },
+       {
+        "name": "Strap",
+        "value": "Black calf"
+       }
+      ]
+     },
+     {
+      "id": "gid://shopify/ProductVariant/1023",
+      "availableForSale": true,
+      "price": {
+       "amount": "4800.0",
+       "currencyCode": "USD"
+      },
+      "selectedOptions": [
+       {
+        "name": "Dial",
+        "value": "Glacier"
+       },
+       {
+        "name": "Case",
+        "value": "Polished steel"
+       },
+       {
+        "name": "Strap",
+        "value": "Cognac calf"
+       }
+      ]
+     },
+     {
+      "id": "gid://shopify/ProductVariant/1024",
+      "availableForSale": true,
+      "price": {
+       "amount": "5450.0",
+       "currencyCode": "USD"
+      },
+      "selectedOptions": [
+       {
+        "name": "Dial",
+        "value": "Glacier"
+       },
+       {
+        "name": "Case",
+        "value": "Polished steel"
+       },
+       {
+        "name": "Strap",
+        "value": "Steel bracelet"
+       }
+      ]
+     },
+     {
+      "id": "gid://shopify/ProductVariant/1025",
+      "availableForSale": true,
+      "price": {
+       "amount": "5600.0",
+       "currencyCode": "USD"
+      },
+      "selectedOptions": [
+       {
+        "name": "Dial",
+        "value": "Glacier"
+       },
+       {
+        "name": "Case",
+        "value": "Black ceramic"
+       },
+       {
+        "name": "Strap",
+        "value": "Black calf"
+       }
+      ]
+     },
+     {
+      "id": "gid://shopify/ProductVariant/1026",
+      "availableForSale": false,
+      "price": {
+       "amount": "6250.0",
+       "currencyCode": "USD"
+      },
+      "selectedOptions": [
+       {
+        "name": "Dial",
+        "value": "Glacier"
+       },
+       {
+        "name": "Case",
+        "value": "Black ceramic"
+       },
+       {
+        "name": "Strap",
+        "value": "Steel bracelet"
+       }
+      ]
+     }
+    ]
+   }
+  }
+ }
+}
