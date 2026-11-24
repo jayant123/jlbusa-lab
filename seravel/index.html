@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>SERAVEL Fine Jewelry | Concept store by JLB USA</title>
+<meta name="description" content="SERAVEL is a fictional jeweler. This concept store by JLB USA lets you design a ring in 3D on a live Shopify catalog and cart.">
+<meta name="theme-color" content="#0a0f1c">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Spectral:wght@300;400&family=Hanken+Grotesk:wght@400;500;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Spectral:wght@300;400&family=Hanken+Grotesk:wght@400;500;600&display=swap" rel="stylesheet"></noscript>
+<link rel="preload" as="image" href="/seravel/stills/hero-photo.webp" fetchpriority="high">
+<script>document.documentElement.classList.add('js')</script>
+<link rel="stylesheet" href="/src/kit/kit.css">
+<link rel="stylesheet" href="/src/seravel/style.css">
+</head>
+<body>
+<p class="s-announce">Free insured shipping. Free resizing in the first 60 days.</p>
+<header class="s-top">
+  <a class="s-mark" href="#top" aria-label="SERAVEL home">SERAVEL</a>
+  <nav class="s-nav" aria-label="Main">
+    <a href="#collection">Shop</a><a href="#design">Design a ring</a><a href="#sizing">Ring sizes</a><a href="#workshop">Workshop</a><a href="#journal">Journal</a>
+  </nav>
+  <details class="s-menu">
+    <summary>Menu</summary>
+    <nav aria-label="Menu"><a href="#collection">Shop</a><a href="#design">Design a ring</a><a href="#sizing">Ring sizes</a><a href="#workshop">Workshop</a><a href="#journal">Journal</a><a href="#faq">Help</a></nav>
+  </details>
+  <span class="s-concept">Concept by JLB USA</span>
+</header>
+
+<div class="s-stage" aria-hidden="true"><canvas id="gl"></canvas></div>
+
+<main id="top">
+  <section class="s-hero">
+    <img class="s-hero-photo" src="/seravel/stills/hero-photo.webp" alt="A diamond ring, a sapphire pendant and two gold hoops on dark navy velvet." width="2400" height="1500" fetchpriority="high">
+    <div class="s-hero-copy">
+      <p class="s-eyebrow">Fine jewelry · Made to order</p>
+      <h1>Fine jewelry made at the bench</h1>
+      <p class="s-lede">Rings, pendants and hoops in 18k gold. Each piece is made by hand after you order it.</p>
+      <div class="s-ctas"><a class="s-btn" href="#design">Design your ring</a><a class="s-btn s-btn-ghost" href="#collection">Shop the collection</a></div>
+    </div>
+  </section>
+
+  <section class="s-collection s-light" id="collection" aria-labelledby="col-title">
+    <div class="s-wrap">
+      <div class="s-head"><h2 id="col-title">The collection</h2><p>Three pieces. Each comes in yellow, white or rose gold.</p></div>
+      <ul class="s-grid" id="grid"></ul>
+    </div>
+  </section>
+
+  <section class="s-design" id="design" data-3d aria-labelledby="design-title">
+    <div class="s-config">
+      <p class="s-kicker">Solace Ring</p>
+      <h2 id="design-title">Design your ring</h2>
+      <p class="s-price"><span data-testid="ring-price" id="ring-price"></span> <span class="s-price-note" id="ring-note"></span></p>
+      <fieldset class="s-group"><legend>Metal</legend><div class="s-chips" id="metals"></div></fieldset>
+      <fieldset class="s-group"><legend>Stone</legend><div class="s-chips" id="stones"></div><p class="s-hint" id="stone-note"></p></fieldset>
+      <div class="s-row">
+        <label class="s-field"><span>Ring size</span>
+          <select id="size"></select>
+        </label>
+        <p class="s-hint s-mm" id="size-mm"></p>
+      </div>
+      <label class="s-field"><span>Engraving inside the band <em id="eng-count">0 of 18</em></span>
+        <input id="engraving" type="text" maxlength="40" autocomplete="off" placeholder="Up to 18 letters">
+      </label>
+      <div class="s-views" role="group" aria-label="View">
+        <button type="button" class="s-view" data-view="front" aria-pressed="true">Ring</button>
+        <button type="button" class="s-view" data-view="macro" aria-pressed="false">Stone close-up</button>
+        <button type="button" class="s-view" data-view="inside" aria-pressed="false">Inside the band</button>
+      </div>
+      <button type="button" class="s-btn s-add-ring" id="ring-add" disabled>Add ring to cart</button>
+      <p class="s-status" id="status" role="status" aria-live="polite"></p>
+      <p class="s-hint s-drag"><span class="s-hint-wide">Drag the ring to turn it.</span><span class="s-hint-narrow">Swipe across the ring to turn it.</span></p>
+    </div>
+  </section>
+
+  <section class="s-pieces s-light" id="pieces" aria-labelledby="pieces-title">
+    <div class="s-wrap">
+      <div class="s-head"><h2 id="pieces-title">Pendant and hoops</h2><p>Both are shown in the photo metal. Choose any metal below.</p></div>
+      <div class="s-piece-grid" id="piece-list"></div>
+    </div>
+  </section>
+
+  <section class="s-workshop" id="workshop" aria-labelledby="ws-title">
+    <div class="s-wrap s-split">
+      <img class="s-ws-img" src="/seravel/stills/macro.webp" alt="The Solace ring up close. Four claws hold the stone." loading="lazy" width="1200" height="900">
+      <div>
+        <p class="s-kicker">The workshop</p>
+        <h2 id="ws-title">Three jewelers and one long bench</h2>
+        <p>SERAVEL is a small workshop. Three jewelers make every piece by hand. Nothing is cast in bulk.</p>
+        <p>We set each stone under a microscope. The claws are shaped to the stone you chose. Then we polish the ring by hand in three stages.</p>
+        <p>All our gold is recycled 18k. Our diamonds are lab-grown. Our sapphires and emeralds come from suppliers who name the mine. We keep that paperwork for every stone and send you a copy.</p>
+        <ul class="s-facts"><li><strong>3</strong> jewelers</li><li><strong>18k</strong> recycled gold</li><li><strong>4 weeks</strong> from order to your door</li></ul>
+        <a class="s-btn s-btn-ghost" href="" id="consult" target="_blank" rel="noopener">Book a consultation</a>
+        <p class="s-small">In this concept the button opens a JLB USA booking page.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="s-sizing s-light" id="sizing" aria-labelledby="size-title">
+    <div class="s-wrap s-split s-split-top">
+      <div>
+        <h2 id="size-title">Find your ring size</h2>
+        <p>Measure a ring that fits the finger you want. Measure the inside edge to edge in millimeters. Find that number in the table.</p>
+        <p>Fingers swell in the heat and at the end of the day. Measure in the afternoon if you can.</p>
+        <p>Between two sizes? Choose the larger one. We resize for free in the first 60 days.</p>
+      </div>
+      <div class="s-table-wrap"><table class="s-table" id="size-table"><caption class="s-sr">US ring sizes and inside diameters</caption></table></div>
+    </div>
+  </section>
+
+  <section class="s-reviews" aria-labelledby="rev-title">
+    <div class="s-wrap">
+      <div class="s-head"><h2 id="rev-title">What customers say</h2><p class="s-small">Sample reviews. SERAVEL is a concept brand.</p></div>
+      <ul class="s-rev">
+        <li><p class="s-stars" aria-label="5 out of 5 stars">★★★★★</p><blockquote>I proposed with the Solace ring in white gold. The stone catches every light in the room.</blockquote><p class="s-who">James T. · Solace Ring</p></li>
+        <li><p class="s-stars" aria-label="5 out of 5 stars">★★★★★</p><blockquote>The engraving is tiny and perfect. We put our wedding date inside the band.</blockquote><p class="s-who">Rachel M. · Solace Ring</p></li>
+        <li><p class="s-stars" aria-label="4 out of 5 stars">★★★★☆</p><blockquote>The hoops are light enough to sleep in. I wear the small ones every day.</blockquote><p class="s-who">Nadia F. · Tide Hoops</p></li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="s-journal s-light" id="journal" aria-labelledby="jr-title">
+    <div class="s-wrap">
+      <div class="s-head"><h2 id="jr-title">From the journal</h2><p>Short notes on choosing and caring for fine jewelry.</p></div>
+      <ul class="s-posts">
+        <li><img src="/seravel/stills/journal-1.webp" alt="" loading="lazy" width="1200" height="900"><h3>How to clean a ring at home</h3><p>Warm water, a drop of dish soap and a soft toothbrush. That is all you need.</p>
+          <details><summary>Read more</summary><p>Soak the ring for ten minutes. Brush under the stone where lotion and soap build up. Rinse it and dry it with a soft cloth. Skip toothpaste and baking soda. Both scratch gold.</p></details></li>
+        <li><img src="/seravel/stills/journal-2.webp" alt="" loading="lazy" width="1200" height="900"><h3>Diamond, sapphire or emerald</h3><p>Each stone wears differently. Here is what to expect from each one.</p>
+          <details><summary>Read more</summary><p>Diamond is the hardest and suits daily wear. Sapphire is nearly as hard and keeps its color for life. Emerald is softer. It suits a ring you take off for the gym and for housework.</p></details></li>
+        <li><img src="/seravel/stills/journal-3.webp" alt="" loading="lazy" width="1200" height="900"><h3>Why we use four claws</h3><p>Four claws show more of the stone. Six claws hold it more tightly.</p>
+          <details><summary>Read more</summary><p>A round stone in four claws looks a little square from above. It also lets in more light from the sides. We check the claws when you send a ring in for cleaning.</p></details></li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="s-faq" id="faq" aria-labelledby="faq-title">
+    <div class="s-wrap s-narrow">
+      <h2 id="faq-title">Questions</h2>
+      <details><summary>How long does a ring take?</summary><p>About four weeks from your order to your door. Engraved rings take the same time.</p></details>
+      <details><summary>Can I change the size later?</summary><p>Yes. Resizing is free in the first 60 days. After that we charge for the work.</p></details>
+      <details><summary>Are your diamonds natural or lab-grown?</summary><p>Our diamonds are lab-grown. They are chemically the same as mined diamonds.</p></details>
+      <details><summary>Do you ship outside the US?</summary><p>Not yet. Every order ships insured within the US.</p></details>
+      <details><summary>Can I return a piece?</summary><p>You can return an unworn piece within 30 days. Engraved rings cannot be returned.</p></details>
+    </div>
+  </section>
+
+  <section class="s-news s-light" aria-labelledby="news-title">
+    <div class="s-wrap s-narrow">
+      <h2 id="news-title">Letters from the workshop</h2>
+      <p>One email a month. You see new pieces before anyone else.</p>
+      <form class="s-news-form" id="news-form" novalidate>
+        <label for="news-email">Email address</label>
+        <div><input id="news-email" type="email" autocomplete="email" required placeholder="you@example.com"><button type="submit" class="s-btn">Subscribe</button></div>
+        <p class="s-news-msg" id="news-msg" role="status" aria-live="polite"></p>
+      </form>
+    </div>
+  </section>
+</main>
+
+<footer class="s-foot">
+  <div class="s-wrap s-foot-cols">
+    <div><p class="s-mark">SERAVEL</p><p>Fine jewelry made at the bench.</p><p>(404) 555-0147</p></div>
+    <div><h3>Shop</h3><a href="#collection">All jewelry</a><a href="#design">Design a ring</a><a href="#pieces">Pendant and hoops</a></div>
+    <div><h3>Help</h3><a href="#sizing">Ring sizes</a><a href="#faq">Shipping and returns</a><a href="#faq">Questions</a></div>
+    <div><h3>About</h3><a href="#workshop">The workshop</a><a href="#journal">Journal</a></div>
+  </div>
+  <p class="concept-foot">Concept by JLB USA. Fictional brand. Products and prices are demo data. <a href="https://jlbusa.com/">jlbusa.com</a></p>
+</footer>
+
+<div class="s-bar" role="region" aria-label="Purchase">
+  <div class="s-bar-item"><span class="s-bar-name" id="bar-name">Solace Ring</span><span class="s-bar-sub" id="bar-sub">Yellow gold · Diamond</span></div>
+  <span class="s-bar-price" data-testid="price" id="price"></span>
+  <button type="button" class="s-add" id="add" disabled>Add to cart</button>
+  <button type="button" class="s-checkout" id="checkout">Checkout (0)</button>
+</div>
+<div id="panel-root"></div>
+<script type="module" src="/src/seravel/main.js"></script>
+</body>
+</html>
