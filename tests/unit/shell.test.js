@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-const FOOTER = 'Concept by JLB USA. Fictional brand; products and prices are demo data.';
+const FOOTER = 'Concept by JLB USA. Fictional brand. Products and prices are demo data.';
 const pages = ['index.html', 'ostrel/index.html', 'plintha/index.html'];
 
 describe('page shells', () => {

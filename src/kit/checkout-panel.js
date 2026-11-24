@@ -26,8 +26,8 @@ export function mountCheckoutPanel(root, { cart, brand, bookingUrl, storePasswor
           <span class="kit-panel__q">× ${l.qty}</span><span class="kit-panel__p">${money(l.price * l.qty, t.currencyCode)}</span></li>`).join('')}
         </ul>
         <p class="kit-panel__total"><span>Total</span><span>${money(t.amount, t.currencyCode)}</span></p>
-        <p class="kit-panel__note">${esc(brand)} is a concept store built by JLB USA. This cart is live Shopify data; payment is switched off.
-        If you'd like an experience like this for your store, let's talk.</p>
+        <p class="kit-panel__note">${esc(brand)} is a concept store built by JLB USA. This cart is live Shopify data. Payment is switched off.
+        Want an experience like this for your store? Let's talk.</p>
         <a class="kit-panel__cta" href="${esc(bookingUrl)}" target="_blank" rel="noopener">Book a call</a>
         <div class="kit-panel__real">
           <button type="button" class="kit-panel__reveal">See Shopify's real checkout (test mode)</button>
@@ -36,7 +36,7 @@ export function mountCheckoutPanel(root, { cart, brand, bookingUrl, storePasswor
     d.querySelector('.kit-panel__close').addEventListener('click', close);
     d.querySelector('.kit-panel__reveal').addEventListener('click', () => {
       const box = d.querySelector('.kit-panel__real');
-      box.innerHTML = `<p>Shopify asks for the store password first: <code>${esc(storePassword)}</code>. Use the test card <code>1</code> as the card number (Bogus Gateway); no money moves.</p>
+      box.innerHTML = `<p>Shopify asks for the store password first. It is <code>${esc(storePassword)}</code>. Enter <code>1</code> as the card number. This is Shopify's test gateway. No money moves.</p>
         <a class="kit-panel__go" href="${esc(cart.checkoutUrl() || '#')}" target="_blank" rel="noopener">Open the test checkout</a>`;
       box.querySelector('a').focus();
     });
