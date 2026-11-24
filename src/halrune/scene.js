@@ -230,6 +230,31 @@ export async function createHalruneScene(canvas, { tier, reducedMotion, onReady,
   });
   window.addEventListener('pointerup', (e) => { if (drag && !drag.on && e.pointerId === drag.id) { const h = hit(e); if (h) onPick?.(h); } drag = null; });
 
+  // Phones: fit the camera so the chosen product (or the whole set) fills the stage with a margin on every side.
+  // The view keeps its angle. Only the distance and the aim change. Hidden parts such as the cable do not count.
+  const fitBox = new THREE.Box3(), partBox = new THREE.Box3(), fitSphere = new THREE.Sphere(), dir = new THREE.Vector3();
+  function boxOf(objs) {
+    fitBox.makeEmpty();
+    for (const root of objs) {
+      root.updateWorldMatrix(true, true);
+      root.traverseVisible((o) => {
+        if (!o.isMesh) return;
+        if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
+        partBox.copy(o.geometry.boundingBox).applyMatrix4(o.matrixWorld);
+        fitBox.union(partBox);
+      });
+    }
+    return fitBox;
+  }
+  function fitNarrow(k, pos, look) {
+    const objs = k === 'room' ? [hpG, budG, ...speakers.map((s) => s.group)] : k === 'exploded' ? [hpG] : [groups[selected]];
+    boxOf(objs).getBoundingSphere(fitSphere);
+    dir.copy(pos).sub(look).normalize();
+    const vfov = THREE.MathUtils.degToRad(camera.fov), hfov = 2 * Math.atan(Math.tan(vfov / 2) * camera.aspect);
+    const dist = (fitSphere.radius * (k === 'room' ? 1.02 : 1.12)) / Math.sin(Math.min(vfov, hfov) / 2);
+    look.copy(fitSphere.center);
+    pos.copy(fitSphere.center).addScaledVector(dir, dist);
+  }
   const cam = { pos: new THREE.Vector3(...VIEWS.room[0]), look: new THREE.Vector3(...VIEWS.room[1]) };
   const tp = new THREE.Vector3(), tl = new THREE.Vector3(), pivot = new THREE.Vector3();
   stage.onFrame((dt, now) => {
@@ -261,7 +286,7 @@ export async function createHalruneScene(canvas, { tier, reducedMotion, onReady,
     const key2 = view === 'room' ? 'room' : view === 'exploded' ? 'exploded' : selected;
     const [p, l] = VIEWS[narrow() && VIEWS[key2 + 'Narrow'] ? key2 + 'Narrow' : key2];
     tl.set(...l); tp.set(...p);
-    if (narrow() && key2 !== 'room') tp.sub(tl).multiplyScalar(1.1).add(tl);
+    if (narrow()) fitNarrow(key2, tp, tl);
     pivot.copy(tl);
     tp.sub(pivot).applyAxisAngle(THREE.Object3D.DEFAULT_UP, yaw + (reducedMotion ? 0 : Math.sin(now * 0.15) * 0.03)).add(pivot);
     cam.pos.lerp(tp, sm(2.2));
@@ -286,5 +311,17 @@ export async function createHalruneScene(canvas, { tier, reducedMotion, onReady,
     setLevels(l) { levels = l; },
     setActive(on) { active = on; },
     groups,
+    // Test helper: the chosen product's box on screen, in canvas pixels.
+    screenBox() {
+      const k = view === 'room' ? 'room' : view === 'exploded' ? 'exploded' : selected;
+      const objs = k === 'room' ? [hpG, budG, ...speakers.map((sp) => sp.group)] : k === 'exploded' ? [hpG] : [groups[selected]];
+      const b = boxOf(objs), v = new THREE.Vector3(), r = { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity };
+      for (let i = 0; i < 8; i++) {
+        v.set(i & 1 ? b.max.x : b.min.x, i & 2 ? b.max.y : b.min.y, i & 4 ? b.max.z : b.min.z).project(camera);
+        const x = (v.x + 1) / 2 * canvas.clientWidth, y = (1 - v.y) / 2 * canvas.clientHeight;
+        r.x0 = Math.min(r.x0, x); r.x1 = Math.max(r.x1, x); r.y0 = Math.min(r.y0, y); r.y1 = Math.max(r.y1, y);
+      }
+      return { ...r, w: canvas.clientWidth, h: canvas.clientHeight };
+    },
   };
 }

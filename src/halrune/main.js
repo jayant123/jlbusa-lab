@@ -224,13 +224,19 @@ async function start3d() {
     if (!scene) return fallback();
     for (const h of ORDER) scene.setFinish(h, choice[h]);
     scene.select(handle);
-    if (params.has('still')) { window.__halrune = scene; return; }
+    if (params.has('still') || params.has('debug3d')) window.__halrune = scene;
+    if (params.has('still')) return;
     const io = new IntersectionObserver((en) => { const on = en.some((e) => e.isIntersecting); scene.setActive(on); });
     io.observe($('#room'));
   } catch {
     fallback();
   }
 }
+
+// The phone stage sticks just under the header, so the page needs the header's real height.
+const setTop = () => document.documentElement.style.setProperty('--h-top', `${$('.h-top').offsetHeight}px`);
+setTop();
+window.addEventListener('resize', setTop);
 
 renderFinishes();
 renderChart();
