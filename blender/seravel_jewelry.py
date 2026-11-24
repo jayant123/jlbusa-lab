@@ -18,7 +18,7 @@ from mathutils import Matrix, Vector
 sys.path.insert(0, os.path.dirname(__file__))
 import common as C  # noqa: E402
 
-LOD = {'high': dict(seg=160, prof=10, sub=2, tube=48, curve=6, link=(14, 8), hoop=(1440, 64)),
+LOD = {'high': dict(seg=160, prof=10, sub=2, tube=48, curve=6, link=(14, 8), hoop=(2800, 72)),
        'low': dict(seg=72, prof=6, sub=1, tube=20, curve=3, link=(8, 5), hoop=(240, 14))}
 
 RING_R = 0.00865      # inner radius, US size 7 (17.3 mm)
@@ -224,14 +224,14 @@ def pendant(lod='high', m=None):
 
 
 # --- Hoops -------------------------------------------------------------------------------------------------------
-def hoop(lod='high', m=None, R=0.0095, name='hoop'):
+def hoop(lod='high', m=None, R=0.0095, name='hoop', grooves=True):
     """A polished hollow hoop: an oval tube with evenly spaced wave flutes that twist along it, closed with a hinged
     clasp at the top (a hinge knuckle on one end, a post on the other that clicks into a catch)."""
     p = LOD[lod]
     m = m or mats()
     nu, nv = p['hoop']
     tube = 0.00155
-    flutes = 18                  # grooves around the hoop
+    flutes = 28                  # grooves around the hoop
     half = 0.17                  # half the groove width, as a share of one flute period
     gap = 0.11                   # opening at the top for the clasp
     bm = bmesh.new()
@@ -245,14 +245,14 @@ def hoop(lod='high', m=None, R=0.0095, name='hoop'):
         row = []
         for j in range(nv):
             ph = (j / nv) * math.tau
-            # The tube is perfectly round. Grooves are cut only where a flute sits: a narrow rounded channel,
-            # full depth on the outer face and fading out toward the sides. Between grooves the tube is untouched.
+            # One continuous round tube. Each flute is a shallow, narrow rounded line cut into it: about 6 % of the tube
+            # radius deep and 8 % of a flute period wide. The outline stays a circle because the grooves sit only on
+            # the front face, which is the face seen from the side.
             f = (t * flutes) % 1.0
-            dist = min(f, 1 - f) / half           # 0 at the groove center, 1 at its edge
+            dist = min(f, 1 - f) / 0.04
             g = 0.5 + 0.5 * math.cos(math.pi * dist) if dist < 1 else 0.0
-            c = min(1.0, max(0.0, (math.cos(ph) + 0.45) / 0.9))
-            face = c * c * (3 - 2 * c)            # front, back and outer faces. The inside against the ear stays smooth.
-            rr = tube * (1 - 0.16 * g * face * ends)
+            face = max(0.0, -math.sin(ph)) ** 2   # the front face toward the camera (-Y)
+            rr = tube * (1 - 0.06 * g * face * ends * (1 if grooves else 0))
             pos = cen + nrm * (math.cos(ph) * rr) + Vector((0, 1, 0)) * (math.sin(ph) * rr)
             row.append(bm.verts.new(pos))
         grid.append(row)

@@ -176,13 +176,13 @@ def build_pendant(metal, stone, loc=(0, 0, 0), turn=0):
     return place(o, (loc[0], loc[1], loc[2] + 0.0019), (math.radians(-90), 0, math.radians(turn)))
 
 
-def build_hoops(metal, loc=(0, 0, 0), size='Small'):
+def build_hoops(metal, loc=(0, 0, 0), size='Small', turn=18, grooves=True):
     R = 0.0095 if size == 'Small' else 0.0118
     m = mats_for(metal, 'Diamond')
-    a = J.hoop('high', m, R, 'hoopA')
-    b = J.hoop('high', m, R, 'hoopB')
-    place(a, (loc[0] - 0.0125, loc[1], loc[2] + R + 0.0016), (0, 0, math.radians(-18)))
-    place(b, (loc[0] + 0.0125, loc[1], loc[2] + R + 0.0016), (0, 0, math.radians(18)))
+    a = J.hoop('high', m, R, 'hoopA', grooves)
+    b = J.hoop('high', m, R, 'hoopB', grooves)
+    place(a, (loc[0] - 0.0125, loc[1], loc[2] + R + 0.0016), (0, 0, math.radians(-turn)))
+    place(b, (loc[0] + 0.0125, loc[1], loc[2] + R + 0.0016), (0, 0, math.radians(turn)))
 
 
 # --- Extra scenes ------------------------------------------------------------------------------------------------
@@ -353,7 +353,7 @@ def main():
     elif mode == 'hero':
         build_ring('Yellow gold', 'Diamond', (0.014, 0.0, 0), 30)
         build_pendant('White gold', 'Sapphire', (-0.006, -0.018, 0), -20)
-        build_hoops('Rose gold', (0.04, 0.034, 0))
+        build_hoops('Rose gold', (0.04, 0.034, 0), turn=-12, grooves=False)  # out of focus here: fine grooves would only read as dots
         camera((0.004, -0.15, 0.062), (0.016, 0.006, 0.01), 80, 11)
         render_settings(int(a.get('w', 2400)), int(a.get('h', 1500)), samples)
     else:
@@ -369,7 +369,7 @@ def main():
             camera((0.0, -0.11, 0.06), (0, 0.006, 0.002), 100, 8.0)
         else:
             build_hoops(metal, size=a.get('size', 'Small'))
-            camera((0.0, -0.13, 0.05), (0.0, 0.0, 0.0115), 90, 16.0)
+            camera((0.0, -0.185, 0.055), (0.0, 0.0, 0.0115), 90, 16.0)
         render_settings(int(a.get('w', 900)), int(a.get('h', 1125)), samples)
     out = os.path.abspath(a['out'])
     os.makedirs(os.path.dirname(out), exist_ok=True)
