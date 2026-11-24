@@ -49,15 +49,15 @@ main{position:relative;z-index:1}
 .o-step{font:500 13px var(--k-font);letter-spacing:.06em;color:var(--o-fg);background:rgba(10,11,12,.7);border:1px solid var(--o-line);padding:11px 16px;cursor:pointer}
 .o-step:hover{border-color:var(--o-champ)}
 
-.o-config{min-height:100svh;padding:16vh max(20px,4vw) 10vh;max-width:520px;background:linear-gradient(90deg,rgba(10,11,12,.92) 60%,rgba(10,11,12,0))}
+.o-config{min-height:100svh;padding:16vh max(20px,4vw) 10vh;max-width:640px;background:linear-gradient(90deg,rgba(10,11,12,.92) 60%,rgba(10,11,12,0))}
 .o-config h2{font-stretch:110%;font-weight:400;font-size:clamp(1.8rem,3.4vw,2.6rem);line-height:1.08;margin:0 0 12px}
 .o-config-note{color:var(--o-mute);font-size:14px;margin:0 0 30px}
 .o-group{border:0;padding:0;margin:0 0 26px}
 .o-group legend{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--o-mute);margin-bottom:12px}
-.o-choices{display:flex;flex-wrap:wrap;gap:8px}
-.o-choice{position:relative;display:flex;align-items:center;gap:10px;border:1px solid var(--o-line);padding:10px 14px 10px 10px;cursor:pointer;font-size:14px}
+.o-choices{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.o-choice{position:relative;display:flex;align-items:center;gap:10px;min-height:50px;line-height:1.25;border:1px solid var(--o-line);padding:10px 14px 10px 10px;cursor:pointer;font-size:14px}
 .o-choice input{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer;z-index:1}
-.o-swatch{width:18px;height:18px;border-radius:50%;background:var(--sw);box-shadow:inset 0 0 0 1px rgba(255,255,255,.2)}
+.o-swatch{flex:none;width:18px;height:18px;border-radius:50%;background:var(--sw);box-shadow:inset 0 0 0 1px rgba(255,255,255,.2)}
 .o-choice:has(input:checked){border-color:var(--o-champ);background:rgba(207,180,136,.08)}
 .o-choice:has(input:focus-visible){outline:2px solid var(--o-champ);outline-offset:2px}
 .o-status{min-height:1.6em;color:var(--o-champ);font-size:14px}
@@ -91,9 +91,8 @@ main{position:relative;z-index:1}
   .o-group{margin:0 0 10px;min-width:0}
   .o-config-copy,.o-options{min-width:0}
   .o-group legend{font-size:10px;margin-bottom:6px}
-  .o-choices{flex-wrap:nowrap;overflow-x:auto;scroll-snap-type:x proximity;scrollbar-width:none;margin:0 calc(-1 * max(20px,4vw));padding:0 max(20px,4vw)}
-  .o-choices::-webkit-scrollbar{display:none}
-  .o-choice{flex:none;scroll-snap-align:start;padding:8px 12px 8px 8px;font-size:13px;white-space:nowrap}
+  .o-choices{gap:6px}
+  .o-choice{padding:7px 8px;font-size:12.5px;gap:8px;min-height:46px}.o-swatch{flex:none;width:15px;height:15px}
   .o-status{min-height:1.3em;margin:0;font-size:13px}
 }
 /* Opening sequence (once per visit) */
@@ -141,7 +140,7 @@ body[data-night="1"] .o-top{opacity:.35}
 .o-top{transition:opacity .8s ease}
 
 /* Engraving */
-.o-engrave{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:6px 16px;margin:2px 0 16px;max-width:420px}
+.o-engrave{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:6px 16px;margin:2px 0 16px}
 .o-engrave label{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--o-mute)}
 .o-engrave input{font:500 15px var(--mono);letter-spacing:.14em;text-transform:uppercase;background:transparent;color:var(--o-fg);border:0;border-bottom:1px solid var(--o-line);border-radius:0;padding:8px 2px;min-width:0}
 .o-engrave input::placeholder{color:var(--o-mute);letter-spacing:.06em;text-transform:none;font-family:var(--k-font)}
@@ -166,7 +165,7 @@ body[data-night="1"] .o-top{opacity:.35}
   .o-config-copy{padding-top:40px}
   .o-config h2{font-size:1.2rem;margin-bottom:10px}
   .o-group{margin-bottom:6px}.o-group legend{margin-bottom:4px}
-  .o-choice{padding:6px 10px 6px 6px;font-size:12px;gap:8px}.o-swatch{width:15px;height:15px}
+  .o-choice{padding:5px 7px;font-size:11.5px;gap:6px;min-height:40px}.o-swatch{width:15px;height:15px}
 }
 @media (prefers-reduced-motion:reduce){.o-stage canvas,.o-poster,.js .rise,.js .o-hero-copy>*{transition:none}}
 /* Phones: the new chapters pin their copy to the bottom so the watch stays in view above it */
