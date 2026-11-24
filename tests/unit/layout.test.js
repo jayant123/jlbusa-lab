@@ -47,3 +47,16 @@ describe('PLINTHA layout', () => {
     ]);
   });
 });
+
+import { quote } from '../../src/plintha/layout.js';
+describe('PLINTHA quote', () => {
+  it('prices every module in the chosen fabric from the store data', () => {
+    const l = build([['arm_left', 'end'], ['armless', 'end'], ['armless', 'end'], ['ottoman', 'free']]);
+    const priced = { ...products, 'plintha-armless': product('plintha-armless', 1450) };
+    expect(quote(l, 'Linen Sand', priced)).toEqual({ amount: 1000 + 2 * 1450 + 1000, currencyCode: 'USD', missing: 0 });
+  });
+  it('counts modules the store cannot price', () => {
+    const l = build([['armless', 'end']]);
+    expect(quote(l, 'Linen Sand', {})).toEqual({ amount: 0, currencyCode: 'USD', missing: 1 });
+  });
+});

@@ -67,3 +67,17 @@ describe('cart', () => {
     expect(seen).toEqual([1, 1, 0]);
   });
 });
+
+describe('cart.addLines', () => {
+  it('adds several variants in one request', async () => {
+    const sf = fakeSf({ cartCreate: (vars) => ({ cartCreate: { cart: cartPayload('c9', vars.lines.map((l) => ({ v: l.merchandiseId, q: l.quantity, p: 100 }))), userErrors: [] } }) });
+    const cart = createCart(sf, 'plintha.cart');
+    await cart.addLines([{ variantId: 'A', qty: 2 }, { variantId: 'B', qty: 1 }]);
+    expect(sf.query).toHaveBeenCalledTimes(1);
+    expect(sf.query.mock.calls[0][1].lines).toEqual([
+      { merchandiseId: 'A', quantity: 2, attributes: [] },
+      { merchandiseId: 'B', quantity: 1, attributes: [] },
+    ]);
+    expect(cart.lines().map((l) => l.qty)).toEqual([2, 1]);
+  });
+});

@@ -93,6 +93,18 @@ def ostrel(aspect, out, samples, frames):
     for k in ('bracelet_top', 'bracelet_bottom'):
         parts[k].hide_render = True
     ostrel_render_materials()
+    # EEVEE renders the refractive crystal as dark glass. Use reflection-only glass, as the web scene does.
+    gm = bpy.data.materials['glass_crystal']
+    gp = gm.node_tree.nodes['Principled BSDF']
+    C.set_input(gp, ['Transmission Weight', 'Transmission'], 0.0)
+    C.set_input(gp, 'Alpha', 0.06)
+    C.set_input(gp, 'Roughness', 0.02)
+    C.set_input(gp, ['Coat Weight', 'Clearcoat'], 1.0)
+    C.set_input(gp, 'Base Color', (1, 1, 1, 1))
+    try:
+        gm.surface_render_method = 'BLENDED'
+    except Exception:
+        gm.blend_method = 'BLEND'
     setup(aspect, samples)
     C.lathe('floor', [(0, -0.012), (0.6, -0.012)], 64, C.material('floor', (0.006, 0.006, 0.007), roughness=0.35))
     key = area('key', (-0.20, 0.02, 0.10), (0, math.radians(-58), 0), 0.012, 0.9, size_y=0.30)

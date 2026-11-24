@@ -171,7 +171,11 @@ def plintha_scene(fabric='Boucle Chalk'):
     proto = {k: PS.module(k, m, 'high') for k in PS.FOOT}
     for o in proto.values():
         o.hide_render = True
-    PS.room('high')
+    r = PS.room('high')
+    r['rug'].location = (2.0, -2.05, 0)
+    r['side_table'].location = (-0.42, -0.55, 0)
+    r['floor_lamp'].location = (-0.85, 0.25, 0)
+    C.extrude_poly('ceiling', [(-1.45, -9.0), (12.0, -9.0), (12.0, 1.2), (-1.45, 1.2)], 3.4, 3.5, C.material('ceiling', (0.9, 0.89, 0.86), roughness=0.9))
     x = 0.0
     for k in ('arm_left', 'armless', 'armless', 'corner'):
         o = proto[k].copy(); bpy.context.collection.objects.link(o); o.hide_render = False
@@ -190,10 +194,10 @@ def plintha(out, samples, only=None):
     render_setup(samples, 1600, 1000)
     s = bpy.context.scene
     s.world.node_tree.nodes['Background'].inputs['Color'].default_value = (0.70, 0.66, 0.60, 1)
-    s.world.node_tree.nodes['Background'].inputs['Strength'].default_value = 0.75
-    sun = bpy.data.lights.new('sun_day', 'SUN'); sun.energy = 5.5; sun.angle = math.radians(2.5); sun.color = (1.0, 0.95, 0.86)
+    s.world.node_tree.nodes['Background'].inputs['Strength'].default_value = 0.5
+    sun = bpy.data.lights.new('sun_day', 'SUN'); sun.energy = 8.0; sun.angle = math.radians(2.5); sun.color = (1.0, 0.95, 0.86)
     so = bpy.data.objects.new('sun_day', sun); bpy.context.collection.objects.link(so)
-    so.rotation_euler = (math.radians(58), math.radians(-22), math.radians(-48))
+    so.rotation_euler = (math.radians(57), math.radians(0), math.radians(-62))  # low sun through the left windows
     area('fill', (1.5, -5.0, 2.2), (math.radians(70), 0, 0), 3.0, 120, (0.92, 0.95, 1.0))
     cam = camera((-0.55, -4.9, 1.05), (1.95, -0.85, 0.42), lens=30, fstop=8)
     s.render.filepath = os.path.join(out, 'room-day.webp')

@@ -77,9 +77,13 @@ export function createCart(sf, storageKey) {
       });
     },
     add(variantId, qty = 1, attrs) {
+      return this.addLines([{ variantId, qty, attrs }]);
+    },
+    // Several variants in one request (a modular layout adds all its modules at once).
+    addLines(items) {
       return run(async () => {
         const id = state?.id ?? store.get(storageKey);
-        const lines = toLines(variantId, qty, attrs);
+        const lines = items.flatMap((i) => toLines(i.variantId, i.qty ?? 1, i.attrs));
         if (!id) return create(lines);
         const r = await sf.query(M.add, { id, lines });
         if (!r.cartLinesAdd.cart) { store.del(storageKey); return create(lines); }

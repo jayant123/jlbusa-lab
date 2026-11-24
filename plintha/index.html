@@ -2,12 +2,132 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex">
-<title>PLINTHA: a concept store by JLB USA</title>
+<title>PLINTHA Modular Sofa | Concept store by JLB USA</title>
+<meta name="description" content="PLINTHA is a fictional furniture maker. This concept store by JLB USA lets you build a modular sofa in a 3D room on a live Shopify catalog and cart.">
+<meta name="theme-color" content="#e7e3dc">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@400;500;600;700&family=Martian+Mono:wght@300;400;500&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@400;500;600;700&family=Martian+Mono:wght@300;400;500&display=swap" rel="stylesheet"></noscript>
+<link rel="preload" as="image" href="/plintha/stills/room-day.webp" fetchpriority="high">
+<script>document.documentElement.classList.add('js')</script>
+<link rel="stylesheet" href="/src/kit/kit.css">
+<link rel="stylesheet" href="/src/plintha/style.css">
 </head>
-<body>
-<main id="app"><h1>PLINTHA</h1></main>
+<body data-fabric="boucle-chalk" data-light="day" data-room="building" data-mode="showroom">
+<header class="p-top">
+  <a class="p-mark" href="#top" aria-label="PLINTHA, back to top">PLINTHA</a>
+  <nav class="p-nav" aria-label="Sections"><a href="#plinth">Plinth</a><a href="#fabric">Fabric</a><a href="#build">Build</a></nav>
+  <span class="p-concept">Concept by JLB USA</span>
+</header>
+
+<div class="p-stage" aria-hidden="true">
+  <img class="p-poster plintha-still" src="/plintha/stills/room-day.webp" alt="" width="1600" height="1000" fetchpriority="high">
+  <canvas id="gl"></canvas>
+  <svg class="p-dims"></svg>
+</div>
+
+<main id="top">
+  <section class="p-hero">
+    <div class="p-hero-copy">
+      <p class="p-eyebrow">Modular sofa <span>·</span> Six modules <span>·</span> Concept</p>
+      <h1>Build the sofa that fits your room</h1>
+      <p class="p-lede">Six modules on dark oak plinths. Snap them together and watch the room take shape around them. The size and the price update with every piece.</p>
+      <a class="p-go" href="#build">Start building</a>
+    </div>
+  </section>
+
+  <section class="p-chapter" id="plinth" data-view="plinth" aria-labelledby="plinth-title">
+    <div class="p-card">
+      <p class="p-num">01</p>
+      <h2 id="plinth-title">Every module stands on a plinth</h2>
+      <p>A recessed oak base lifts each piece off the floor. The sofa looks lighter. The stone runs on underneath it.</p>
+      <dl class="p-spec"><div><dt>Plinth</dt><dd>7 cm solid oak</dd></div><div><dt>Seat height</dt><dd>43 cm</dd></div></dl>
+    </div>
+  </section>
+
+  <section class="p-chapter" id="fabric" data-view="fabric" aria-labelledby="fabric-title">
+    <div class="p-card">
+      <p class="p-num">02</p>
+      <h2 id="fabric-title">Four fabrics with real texture</h2>
+      <p>Boucle, wool, linen and velvet. One fabric covers every module in the layout. The covers zip off for cleaning.</p>
+      <dl class="p-spec"><div><dt>Fabrics</dt><dd>Four</dd></div><div><dt>Covers</dt><dd>Removable</dd></div></dl>
+      <img class="p-card-still plintha-still" src="/plintha/stills/fabric.webp" alt="Close view of the boucle fabric on a PLINTHA seat cushion." loading="lazy" width="1600" height="1000">
+    </div>
+  </section>
+
+  <section class="p-chapter" id="evening" data-view="evening" aria-labelledby="evening-title">
+    <div class="p-card">
+      <p class="p-num">03</p>
+      <h2 id="evening-title">Morning light to evening</h2>
+      <p>Sun through tall windows in the day. A warm lamp after dark. Scroll on and the room changes with you.</p>
+      <img class="p-card-still plintha-still" src="/plintha/stills/room-evening.webp" alt="The PLINTHA sofa in the evening, lit by a floor lamp." loading="lazy" width="1600" height="1000">
+    </div>
+  </section>
+
+  <section class="p-build" id="build" aria-labelledby="build-title">
+    <div class="p-panel">
+      <div class="p-panel-head">
+        <h2 id="build-title">Build your layout</h2>
+        <div class="p-light" role="group" aria-label="Light">
+          <button type="button" class="p-light-b" data-light="day" aria-pressed="true">Day</button>
+          <button type="button" class="p-light-b" data-light="evening" aria-pressed="false">Evening</button>
+        </div>
+      </div>
+      <p class="p-how"><span class="p-how-wide">Drag a module into the room or click it to add.</span><span class="p-how-narrow">Tap a module to add it.</span> Arms and a chaise close a run. A corner starts a return.</p>
+      <ul class="p-palette" id="palette" aria-label="Modules"></ul>
+      <fieldset class="p-fabrics">
+        <legend>Fabric</legend>
+        <div class="p-swatches" id="fabrics"></div>
+      </fieldset>
+      <div class="p-layout-head"><h3>Your layout</h3><span class="p-count" id="count">0 of 8 modules</span></div>
+      <ol class="p-list" id="list" aria-label="Your layout"></ol>
+      <div class="p-plan" id="plan"></div>
+      <dl class="p-sum">
+        <div><dt>Size</dt><dd data-testid="dims" id="dims">0 × 0 cm</dd></div>
+        <div><dt>Total</dt><dd data-testid="total" id="total"></dd></div>
+        <div><dt>Delivery</dt><dd>Ships in 6-8 weeks (demo)</dd></div>
+      </dl>
+      <div class="p-actions">
+        <button type="button" class="p-act" id="share">Copy share link</button>
+        <button type="button" class="p-act" id="showroom">Start from the showroom layout</button>
+        <button type="button" class="p-act" id="clear">Clear</button>
+      </div>
+      <p class="p-status" id="status" role="status" aria-live="polite"></p>
+    </div>
+  </section>
+
+  <section class="p-close" aria-labelledby="sizes-title">
+    <h2 id="sizes-title">Module sizes</h2>
+    <table class="p-table">
+      <thead><tr><th scope="col">Module</th><th scope="col">Width</th><th scope="col">Depth</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Armless</th><td>90 cm</td><td>100 cm</td></tr>
+        <tr><th scope="row">Corner</th><td>100 cm</td><td>100 cm</td></tr>
+        <tr><th scope="row">Left arm</th><td>105 cm</td><td>100 cm</td></tr>
+        <tr><th scope="row">Right arm</th><td>105 cm</td><td>100 cm</td></tr>
+        <tr><th scope="row">Chaise</th><td>90 cm</td><td>165 cm</td></tr>
+        <tr><th scope="row">Ottoman</th><td>90 cm</td><td>90 cm</td></tr>
+      </tbody>
+    </table>
+    <div class="p-notes">
+      <p><strong>Seat</strong> 43 cm high and 62 cm deep.</p>
+      <p><strong>Delivery</strong> Made to order. Ships in 6-8 weeks.</p>
+      <p><strong>Rearrange</strong> Modules link with hidden clips. Change the layout any time.</p>
+    </div>
+    <p class="p-bigmark" aria-hidden="true" data-text="PLINTHA"></p>
+  </section>
+</main>
+
+<div class="p-bar" role="region" aria-label="Purchase">
+  <div class="p-bar-sum"><span class="p-bar-dims" id="bar-dims">No modules yet</span><span class="p-bar-total" id="bar-total"></span></div>
+  <button type="button" class="p-add" id="add" disabled>Add layout to cart</button>
+  <button type="button" class="p-checkout" id="checkout">Checkout (0)</button>
+</div>
+<div id="panel-root"></div>
+
 <footer class="concept-foot">Concept by JLB USA. Fictional brand. Products and prices are demo data. <a href="https://jlbusa.com/">jlbusa.com</a></footer>
+<script type="module" src="/src/plintha/main.js"></script>
 </body>
 </html>

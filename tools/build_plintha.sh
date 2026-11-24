@@ -19,5 +19,5 @@ for lod in high low; do
     "$B" -b -P blender/plintha_set.py -- --lod $lod --what room --out build/room-$lod.raw.glb > build/plintha-room-$lod.log 2>&1
     npx gltf-transform meshopt build/room-$lod.raw.glb public/plintha/room-$lod.glb --level medium > /dev/null
   fi
-  node tools/glb_check.mjs public/plintha/room-$lod.glb --nodes floor,walls --max-mb $M
+  node tools/glb_check.mjs public/plintha/room-$lod.glb --nodes floor,walls,rug,side_table,floor_lamp --max-mb $M
 done

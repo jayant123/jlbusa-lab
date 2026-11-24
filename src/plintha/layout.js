@@ -69,3 +69,16 @@ export function cartLines(layout, fabric, products) {
   }
   return out;
 }
+
+// Total for the layout in the chosen fabric, from the store's variant prices.
+export function quote(layout, fabric, products) {
+  const order = [...layout.main, ...layout.ret, ...Array(layout.ottomans).fill('ottoman')];
+  let amount = 0, missing = 0, currencyCode = 'USD';
+  for (const m of order) {
+    const v = products[handleOf(m)]?.variants.find((x) => x.selectedOptions.Fabric === fabric);
+    if (!v) { missing += 1; continue; }
+    amount += v.price;
+    if (v.currencyCode) currencyCode = v.currencyCode;
+  }
+  return { amount, currencyCode, missing };
+}
