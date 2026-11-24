@@ -188,7 +188,7 @@ KINDS = {
         stack=lambda t: 0.016,
         wall=lambda t: 0.013,
         flare=lambda t: 0.0,
-        upper_h=lambda t: 0.058 + 0.007 * sm(0.1, 0.0, t) + 0.013 * sm(0.3, 0.5, t) - 0.042 * sm(0.5, 0.9, t) - 0.022 * sm(0.9, 1.0, t),
+        upper_h=lambda t: 0.058 + 0.007 * sm(0.1, 0.0, t) + 0.013 * sm(0.3, 0.5, t) - 0.046 * sm(0.5, 0.86, t) - 0.024 * sm(0.86, 1.02, t),
         holes=7,
     ),
 }
@@ -254,7 +254,7 @@ def build(kind='runner', lod='high'):
         'midsole': C.material('midsole', (0.86, 0.84, 0.8), roughness=0.55),
         'insole': C.material('insole', (0.18, 0.18, 0.2), roughness=0.9),
         'upper': C.material('upper', (0.8, 0.78, 0.74), roughness=0.82 if runner else 0.42, coat=0.0 if runner else 0.25),
-        'overlay': C.material('overlay', (0.8, 0.78, 0.74), roughness=0.35 if runner else 0.4, coat=0.35 if runner else 0.3),
+        'overlay': C.material('overlay', (0.8, 0.78, 0.74), roughness=0.72 if runner else 0.4, coat=0.0 if runner else 0.3),
         'tongue': C.material('tongue', (0.8, 0.78, 0.74), roughness=0.85),
         'label': C.material('label', (0.03, 0.03, 0.035), roughness=0.7),
         'laces': C.material('laces', (0.9, 0.9, 0.88), roughness=0.8),
@@ -265,6 +265,7 @@ def build(kind='runner', lod='high'):
     }
     if runner:
         with_normal(mats['upper'], knit_normal(os.path.join(TEX, 'vantrik_knit.png')), 1.35)
+        with_normal(mats['overlay'], grain_normal(os.path.join(TEX, 'vantrik_grain.png')), 0.25)  # coated knit: a faint texture
         with_normal(mats['tongue'], knit_normal(os.path.join(TEX, 'vantrik_knit.png')), 0.8)
     else:
         g = grain_normal(os.path.join(TEX, 'vantrik_grain.png'))
@@ -342,7 +343,8 @@ def build(kind='runner', lod='high'):
             w += c
             hh += c
         sn, cs = math.sin(phi), math.cos(phi)
-        e = 2 / lerp(pw, 2.0, sm(0.7, 1.0, t))
+        # Runner: boxy at the heel, round at the toe. Court: a flat-topped, low toe box like a classic court shoe.
+        e = 2 / (lerp(pw, 2.0, sm(0.7, 1.0, t)) if runner else lerp(pw, 3.4, sm(0.6, 0.95, t)))
         y = w * math.copysign(abs(sn) ** e, sn)
         z = z_bed(t) - 0.002 + hh * abs(cs) ** e
         return Vector((t * L, y, z))
@@ -462,21 +464,24 @@ def build(kind='runner', lod='high'):
         return o
 
     q = 1 if hi else 2
+    # On the court shoe the cupsole wall climbs the upper. Panels stop just above it so they never poke through.
+    A_LOW = 1.0 if runner else 0.8
     overlays, trims = [], []
     # Heel counter: climbs near the collar at the back and sweeps down to the sole by mid-foot.
     hc_top = lambda t: lerp(0.94, 0.0, sm(0.06, 0.3, t))
     trims.append(panel('counter', mats['trim'] if runner else mats['overlay'],
-                       lambda u, v: (lerp(0.0015, 0.3, u), lerp(1 - hc_top(lerp(0.0015, 0.3, u)), 1.0, v)), 30 // q, 8 // q))
+                       lambda u, v: (lerp(0.0015, 0.3, u), lerp(1 - hc_top(lerp(0.0015, 0.3, u)), A_LOW, v)), 30 // q, 8 // q))
     # Eyestay: a strip along each side of the throat that carries the eyelets.
     trims.append(panel('eyestay', mats['trim'] if runner else mats['overlay'],
-                       lambda u, v: (lerp(0.33, 0.69, u), v * 0.24 * sm(0.0, 0.08, u) * sm(1.0, 0.86, u) + 0.002), 30 // q, 4, stitch=('v1',)))
+                       lambda u, v: (lerp(0.33, 0.69, u), v * 0.24 * sm(0.0, 0.08, u) * sm(1.0, 0.86, u) + 0.002), 30 // q, 4,
+                       stitch=('v1',) if runner else ('v0', 'v1'), thick=0.0012 if runner else 0.0024, inset=0.0016 if runner else 0.0026))
     if runner:
         # Mudguard: a smooth band low round the toe and the forefoot.
         mg = lambda t: 0.36 * sm(0.48, 0.62, t) + 0.12 * sm(0.78, 0.96, t)
         overlays.append(panel('mudguard', mats['overlay'], lambda u, v: (lerp(0.48, 0.999, u), lerp(1 - mg(lerp(0.48, 0.999, u)), 1.0, v)), 40 // q, 6 // q))
     else:
         # Toe cap with a curved back edge, and a perforated toe box behind it.
-        overlays.append(panel('toecap', mats['overlay'], lambda u, v: (lerp(0.79 + 0.06 * v * v, 0.999, u), v), 18 // q, 14 // q, stitch=('u0',)))
+        overlays.append(panel('toecap', mats['overlay'], lambda u, v: (lerp(0.79 + 0.06 * v * v, 0.999, u), v * A_LOW), 18 // q, 14 // q, stitch=('u0',)))
     # Side stripe: a diagonal band on both sides, wider in the middle.
     def stripe(u, v):
         t = lerp(0.22, 0.6, u)

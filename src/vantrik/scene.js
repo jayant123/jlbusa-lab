@@ -91,7 +91,9 @@ export async function createVantrikScene(canvas, { tier, reducedMotion, onReady,
       if (src.normalMap) { m.normalMap = src.normalMap; m.normalScale.set(0.9, 0.9); }
       const knit = src.normalMap && src.roughness > 0.7;
       if (rich && knit && ['upper', 'tongue'].includes(src.name)) { m.sheen = 0.55; m.sheenRoughness = 0.5; m.sheenColor.set(0xffffff); }
-      if (rich && !knit && ['upper', 'overlay', 'trim'].includes(src.name)) { m.clearcoat = 0.25; m.clearcoatRoughness = 0.45; }
+      // Leather gets a light coat. The runner's coated-knit mudguard stays satin with a soft sheen.
+      if (rich && !knit && src.roughness < 0.6 && ['upper', 'overlay', 'trim'].includes(src.name)) { m.clearcoat = 0.25; m.clearcoatRoughness = 0.45; }
+      if (rich && src.name === 'overlay' && src.roughness >= 0.6) { m.sheen = 0.3; m.sheenRoughness = 0.6; m.sheenColor.set(0xffffff); }
       o.material = m;
       const shade = src.name === 'overlay' && isKnit ? SHADE.overlay : src.name === 'stitch' ? SHADE.stitch : 1;
       parts.push({ mesh: o, part: name, drive: DRIVE[src.name] ?? null, shade, lift: LIFT[name] ?? UPPER_LIFT, base: o.position.y, target: m.color.clone() });

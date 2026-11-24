@@ -63,14 +63,20 @@ def shoe(kind, colors, loc=(0, 0, 0), rot=0.0, tag=''):
             p.inputs['Base Color'].default_value = (*lin(colors[drive[key]]), 1)
         if key == 'stitch':  # thread matches the laces
             p.inputs['Base Color'].default_value = (*[v * 0.92 for v in lin(colors.get('laces', '#eeeeee'))], 1)
-        if key == 'overlay' and kind == 'runner':  # the mudguard reads a shade deeper than the knit
+        if key == 'overlay' and kind == 'runner':  # the mudguard: a shade deeper than the knit, satin, faintly textured
             p.inputs['Base Color'].default_value = (*[v * 0.8 for v in lin(colors['upper'])], 1)
+            p.inputs['Roughness'].default_value = 0.68
+            p.inputs['Coat Weight'].default_value = 0.0
+            p.inputs['Sheen Weight'].default_value = 0.3
+            p.inputs['Sheen Roughness'].default_value = 0.6
+            foam_bump(m, 1800, 0.05)
         if key in ('upper', 'tongue') and kind == 'runner':
             p.inputs['Sheen Weight'].default_value = 0.55
             p.inputs['Sheen Roughness'].default_value = 0.45
-        if key in ('upper', 'overlay') and kind == 'court':
-            p.inputs['Coat Weight'].default_value = 0.25
-            p.inputs['Coat Roughness'].default_value = 0.35
+        if key in ('upper', 'overlay') and kind == 'court':  # leather: a soft sheen, not a glare
+            p.inputs['Roughness'].default_value = 0.5
+            p.inputs['Coat Weight'].default_value = 0.1
+            p.inputs['Coat Roughness'].default_value = 0.45
         if key == 'midsole':
             p.inputs['Roughness'].default_value = 0.6
             foam_bump(m, 1500, 0.06)
