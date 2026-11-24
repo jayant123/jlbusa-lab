@@ -229,9 +229,33 @@ def plintha(out, samples, only=None):
         bpy.ops.render.render(write_still=True)
 
 
+
+def nuithra(out, samples, only=None):
+    """Bottle on a dark lacquer plinth in an aubergine room, warm rim light through the glass."""
+    import nuithra_bottle as NB
+    C.reset()
+    parts = NB.build('high')
+    render_setup(samples, 1600, 1000)
+    s = bpy.context.scene
+    s.cycles.transparent_max_bounces = 16
+    s.cycles.transmission_bounces = 16
+    s.view_settings.look = 'AgX - Medium High Contrast'
+    s.world.node_tree.nodes['Background'].inputs['Color'].default_value = (0.035, 0.012, 0.03, 1)
+    s.world.node_tree.nodes['Background'].inputs['Strength'].default_value = 1.0
+    stone = C.material('plinth', (0.03, 0.012, 0.025), roughness=0.12, coat=1.0)
+    C.lathe('plinth', [(0, -0.03), (0.14, -0.03), (0.14, -0.001), (0.138, 0.0), (0, 0.0)], 96, stone)
+    C.extrude_poly('backdrop', [(-2, 0.6), (2, 0.6), (2, 0.62), (-2, 0.62)], -0.5, 2.0, C.material('backdrop', (0.022, 0.007, 0.018), roughness=0.9))
+    area('key', (-0.35, -0.35, 0.45), (math.radians(45), 0, math.radians(-45)), 0.35, 12, (1.0, 0.96, 0.92))
+    area('rim', (0.05, 0.4, 0.16), (math.radians(-90), 0, 0), 0.25, 30, (1.0, 0.66, 0.32))
+    area('rim2', (0.3, 0.25, 0.1), (math.radians(-70), 0, math.radians(130)), 0.12, 8, (1.0, 0.5, 0.35))
+    cam = camera((0.06, -0.52, 0.16), (0.0, 0.0, 0.072), lens=70, fstop=5.6)
+    s.render.filepath = os.path.join(out, 'hero.webp')
+    bpy.ops.render.render(write_still=True)
+
+
 if __name__ == '__main__':
     a = C.args()
     out = os.path.abspath(a.get('out', f"public/{a.get('brand', 'ostrel')}/stills"))
     os.makedirs(out, exist_ok=True)
-    {'ostrel': ostrel, 'plintha': plintha}[a.get('brand', 'ostrel')](out, int(a.get('samples', 96)), a.get('only'))
+    {'ostrel': ostrel, 'plintha': plintha, 'nuithra': nuithra}[a.get('brand', 'ostrel')](out, int(a.get('samples', 96)), a.get('only'))
     print('STILLS', out)

@@ -9,6 +9,7 @@ export default defineConfig({
         index: resolve(import.meta.dirname, 'index.html'),
         ostrel: resolve(import.meta.dirname, 'ostrel/index.html'),
         plintha: resolve(import.meta.dirname, 'plintha/index.html'),
+        nuithra: resolve(import.meta.dirname, 'nuithra/index.html'),
       },
     },
   },
