@@ -546,7 +546,7 @@ function fallback() {
 }
 async function start3d() {
   const device = readDevice();
-  const tier = detectTier(device);
+  const tier = new URLSearchParams(location.search).get('tier') || detectTier(device);
   if (!device.webgl2) return fallback();
   try {
     const { createPlinthaScene } = await import('./scene.js');

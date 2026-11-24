@@ -98,7 +98,8 @@ export async function createPlinthaScene(canvas, { tier, reducedMotion, onReady,
   scene.add(room);
   // Loose pieces get a holder so the page can move them while their stored transform stays intact.
   const holder = (name) => { const n = room.getObjectByName(name); const g = new THREE.Group(); room.add(g); if (n) g.add(n); return g; };
-  const walls = holder('walls'); const wallBox = new THREE.Box3().setFromObject(walls); const rug = holder('rug'); const sideTable = holder('side_table'), lamp = holder('floor_lamp');
+  let wallsShown = true;
+  const walls = holder('walls'); walls.traverse((o) => { if (o.isMesh) o.material = o.material.clone(); }); const wallBox = new THREE.Box3().setFromObject(walls); const rug = holder('rug'); const sideTable = holder('side_table'), lamp = holder('floor_lamp');
   room.getObjectByName('floor').castShadow = false;
   const proto = Object.fromEntries(Object.keys(WIDTH).map((k) => [k, modG.scene.getObjectByName(k)]));
 
@@ -339,8 +340,13 @@ export async function createPlinthaScene(canvas, { tier, reducedMotion, onReady,
       mark.scale.set(f.maxX - f.minX + 0.08, 1, f.maxZ - f.minZ + 0.08);
       markBox.scale.y = sp.kind === 'ottoman' ? 0.48 : 0.84;
     }
-    // hide the walls when the camera swings outside the room
-    walls.visible = !(camera.position.z < wallBox.min.z + 0.2 || camera.position.x < wallBox.min.x + 0.2 || orbit.topK > 0.5);
+    // Hide the walls when the camera swings outside the room. They stop drawing but keep casting shadows,
+    // so the window light on the floor stays the same.
+    const showWalls = !(camera.position.z < wallBox.min.z + 0.2 || camera.position.x < wallBox.min.x + 0.2 || orbit.topK > 0.5);
+    if (showWalls !== wallsShown) {
+      wallsShown = showWalls;
+      walls.traverse((o) => { if (o.isMesh) { o.material.colorWrite = showWalls; o.material.depthWrite = showWalls; } });
+    }
     light += (lightT - light) * sm(2.5);
     const day = 1 - light;
     sun.intensity = 4.2 * day;
