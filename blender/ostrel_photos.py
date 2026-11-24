@@ -15,6 +15,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 import common as C  # noqa: E402
 import ostrel_watch as W  # noqa: E402
 import stills as S  # noqa: E402
+import ostrel_movement as MV  # noqa: E402
 
 
 def lin(h):
@@ -119,6 +120,7 @@ def main():
         hidden = ('dial', 'hands_hour', 'hands_minute', 'hands_second', 'crystal', 'bezel')
         for k in hidden:
             parts[k].hide_render = True
+        detail = MV.install(parts)
         # Low, raking light for the movement: dark plate, bright edges on the wheels.
         for name, e in (('key', 0.5), ('fill', 0.0), ('rake', 0.6), ('rim', 0.5)):
             bpy.data.objects[name].data.energy = e
@@ -131,6 +133,10 @@ def main():
         bpy.ops.render.render(write_still=True)
         for k in hidden:
             parts[k].hide_render = False
+        for o in detail:
+            bpy.data.objects.remove(o)
+        for k in ('movement_plate', 'gear_train', 'escape_wheel', 'balance_wheel'):
+            parts[k].hide_render = False
         bpy.data.objects.remove(cam)
 
     if only in (None, 'back'):
@@ -138,15 +144,19 @@ def main():
         finish(parts, 'Obsidian', 'Polished steel', 'Cognac calf')
         S.render_setup(samples, 1200, 900)
         sc.render.image_settings.file_format = 'PNG'
+        for name, e in (('key', 1.4), ('fill', 0.09), ('rake', 0.32), ('rim', 0.7)):
+            bpy.data.objects[name].data.energy = e
+        extra = MV.install(parts, caseback=True)
         pivot = bpy.data.objects.new('pivot', None)
         bpy.context.collection.objects.link(pivot)
-        for o in parts.values():
+        for o in list(parts.values()) + extra:
             if o.parent is None:
                 o.parent = pivot
         pivot.rotation_euler = (0, math.pi, 0)
         pivot.location.z = 0.0
+        MV.engrave_back()
         bpy.data.objects['floor'].location.z = -0.0135
-        cam = S.camera((0.028, -0.085, 0.09), (0.0, -0.004, -0.004), lens=85, fstop=8)
+        cam = S.camera((0.016, -0.05, 0.11), (0.0, -0.002, -0.004), lens=85, fstop=11)
         sc.render.filepath = os.path.join(out, 'caseback.png')
         bpy.ops.render.render(write_still=True)
 
