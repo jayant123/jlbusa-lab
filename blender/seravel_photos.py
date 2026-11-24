@@ -112,6 +112,16 @@ def set_and_lights(spread=0.12, sparks=True, dim=1.0):
         area(f'spark{i}', (math.cos(a) * 0.16, math.sin(a) * 0.16 - 0.04, 0.14 + 0.05 * (i % 3)), 0.006, 0.6 + 0.3 * (i % 2))
 
 
+FOCUS = {}  # objects the camera should keep sharp (the ring's stone)
+
+
+def focus_on_stone():
+    # Point the focus at the ring's stone so its facets stay crisp. Blender reads the object's world position.
+    cam = bpy.context.scene.camera
+    if cam and FOCUS.get('stone'):
+        cam.data.dof.focus_object = FOCUS['stone']
+
+
 def camera(loc, target, lens, fstop=4.0):
     cam = bpy.data.cameras.new('cam')
     cam.lens = lens
@@ -168,6 +178,7 @@ def place(objs, loc, rot):
 
 def build_ring(metal, stone, loc=(0, 0, 0), turn=25):
     o = J.ring('high', mats_for(metal, stone))
+    FOCUS['stone'] = o['stone']
     return place(o, (loc[0], loc[1], loc[2] + J.RING_R + J.BAND_T - 0.0002), (0, 0, math.radians(turn)))
 
 
@@ -344,7 +355,7 @@ def main():
     a = C.args()
     C.reset()
     mode = a.get('mode', 'product')
-    samples = int(a.get('samples', 160))
+    samples = int(a.get('samples', 512))
     metal, stone = a.get('metal', 'Yellow gold'), a.get('stone', 'Diamond')
     set_and_lights(sparks=not ((mode == 'product' and a.get('piece') == 'hoops') or mode in ('workshop', 'dish', 'hero')), dim={'workshop': 0.25, 'dish': 0.35}.get(mode, 1.0))
     if mode in ('workshop', 'dish', 'stones', 'claws'):
@@ -354,7 +365,8 @@ def main():
         build_ring('Yellow gold', 'Diamond', (0.014, 0.0, 0), 30)
         build_pendant('White gold', 'Sapphire', (-0.006, -0.018, 0), -20)
         build_hoops('Rose gold', (0.04, 0.034, 0), turn=-12, grooves=False)  # out of focus here: fine grooves would only read as dots
-        camera((0.004, -0.15, 0.062), (0.016, 0.006, 0.01), 80, 11)
+        camera((0.004, -0.15, 0.062), (0.016, 0.006, 0.01), 80, 16)
+        focus_on_stone()
         render_settings(int(a.get('w', 2400)), int(a.get('h', 1500)), samples)
     else:
         piece = a.get('piece', 'ring')
@@ -363,7 +375,8 @@ def main():
             if a.get('cam') == 'macro':
                 camera((0.012, -0.036, 0.046), (0, 0, 0.0232), 100, 11)
             else:
-                camera((0.016, -0.085, 0.06), (0, 0, 0.017), 100, 9)
+                camera((0.016, -0.085, 0.06), (0, 0, 0.017), 100, 22)
+            focus_on_stone()
         elif piece == 'pendant':
             build_pendant(metal, stone)
             camera((0.0, -0.11, 0.06), (0, 0.006, 0.002), 100, 8.0)
