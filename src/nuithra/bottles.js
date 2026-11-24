@@ -1,138 +1,148 @@
-// The five NUITHRA bottles, built in code. Meters, base on y = 0, front facing +z. Each bottle is one 'glass'
-// mesh plus its cap parts. The materials are passed in, so the same builder makes the bottle and its reflection.
+// The five NUITHRA bottles, built in code like cut gemstones. Meters, base on y = 0, front facing +z.
+// Each bottle has a clear faceted glass shell, the colored perfume inside it, a gold collar set with rows of
+// crystals and a cut-stone stopper. Materials are passed in, so the same builder makes the bottle and its reflection.
 import * as THREE from 'three';
-import { toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
-import { surfaceUV } from './etch.js';
-import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
-const crease = (g, a = 0.75) => toCreasedNormals(g, a);
-
-// Extrude a 2D outline (x, z) upward into a solid with rounded top and bottom edges.
-function riser(shape, h, bevel, curve = 24, segs = 10) {
-  const g = new THREE.ExtrudeGeometry(shape, { depth: h - bevel * 2, bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel, bevelSegments: segs, curveSegments: curve });
-  g.rotateX(-Math.PI / 2);
-  g.translate(0, bevel, 0);
-  return crease(g);
-}
-function roundedRect(w, d, r) {
-  const s = new THREE.Shape(), x = w / 2 - r, z = d / 2 - r;
-  s.moveTo(0, -d / 2); s.lineTo(x, -d / 2); s.absarc(x, -z, r, -Math.PI / 2, 0); s.lineTo(w / 2, z);
-  s.absarc(x, z, r, 0, Math.PI / 2); s.lineTo(-x, d / 2); s.absarc(-x, z, r, Math.PI / 2, Math.PI); s.lineTo(-w / 2, -z);
-  s.absarc(-x, -z, r, Math.PI, Math.PI * 1.5);
-  return s;
-}
-function polygon(n, r, rot = 0) {
-  const s = new THREE.Shape();
-  for (let i = 0; i < n; i++) { const a = rot + (i / n) * Math.PI * 2; i ? s.lineTo(Math.cos(a) * r, Math.sin(a) * r) : s.moveTo(Math.cos(a) * r, Math.sin(a) * r); }
-  s.closePath();
-  return s;
-}
-const lathe = (pts, seg = 64) => new THREE.LatheGeometry(pts.map(([x, y]) => new THREE.Vector2(x, y)), seg);
-
-// Each shape: glass geometry, the height of its neck top, and its footprint (for the light pool and the shadow).
-const GLASS = {
-  slab() {
-    // A rounded box with smooth, even edges. The extruded outline left bad triangles at the top corners.
-    const g = new RoundedBoxGeometry(0.054, 0.086, 0.032, 8, 0.0065);
-    g.translate(0, 0.043, 0);
-    return { geo: g, top: 0.086, w: 0.054, d: 0.032 };
-  },
-  moon() {
-    // A thick upright disc with a fully rounded rim, lathed so the curve has no seams. It stands on a short foot.
-    const R = 0.041, T = 0.0135, r = 0.0105, pts = [[0, T]];
-    for (let i = 0; i <= 16; i++) { const a = Math.PI / 2 - (i / 16) * Math.PI; pts.push([R - r + Math.cos(a) * r, Math.sin(a) * T]); }
-    pts.push([0, -T]);
-    const g = lathe(pts, 96);
-    g.rotateX(Math.PI / 2);
-    g.translate(0, 0.047 + 0.0035, 0);
-    const foot = riser(roundedRect(0.036, 0.024, 0.007), 0.006, 0.0022);
-    return { geo: mergeTwo(g, foot), top: 0.0905, w: 0.094, d: 0.027 };
-  },
-  column() {
-    const r = 0.025, h = 0.1;
-    const pts = [[0, 0], [r - 0.004, 0], [r, 0.004], [r, h - 0.01], [r - 0.003, h - 0.003], [r - 0.012, h], [0.008, h], [0.008, h + 0.006], [0, h + 0.006]];
-    return { geo: crease(lathe(pts, 72), 0.5), top: h + 0.006, w: r * 2, d: r * 2 };
-  },
-  obelisk() {
-    const h = 0.108;
-    const g = new THREE.CylinderGeometry(0.0125, 0.0215, h, 6, 1);
-    g.translate(0, h / 2, 0);
-    return { geo: crease(g.toNonIndexed(), 0.3), top: h, w: 0.043, d: 0.037 };
-  },
-  octagon() {
-    return { geo: riser(polygon(8, 0.039, Math.PI / 8), 0.066, 0.004, 8), top: 0.066, w: 0.078, d: 0.078 };
-  },
-};
-
-function mergeTwo(a, b) {
-  const A = a.index ? a.toNonIndexed() : a, B = b.index ? b.toNonIndexed() : b;
-  const g = new THREE.BufferGeometry();
-  for (const k of ['position', 'normal']) {
-    const x = A.attributes[k].array, y = B.attributes[k].array, out = new Float32Array(x.length + y.length);
-    out.set(x); out.set(y, x.length);
-    g.setAttribute(k, new THREE.BufferAttribute(out, 3));
+// A faceted solid of revolution. rings: [y, r, twist] from bottom to top. twist 0.5 turns a ring by half a facet,
+// which turns the band between it and its neighbor into triangular crown facets. sx and sz stretch the cut.
+// rot turns the whole cut so a flat facet faces the front.
+export function gemGeometry(rings, n, { sx = 1, sz = 1, rot = 0, top = true, bottom = true } = {}) {
+  const pos = [];
+  const pt = (ring, i) => {
+    const [y, r, tw = 0] = ring, a = ((i + tw) / n) * Math.PI * 2 + rot;
+    return [Math.sin(a) * r * sx, y, Math.cos(a) * r * sz];
+  };
+  const tri = (a, b, c, out) => {
+    const ab = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], ac = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
+    const nx = ab[1] * ac[2] - ab[2] * ac[1], ny = ab[2] * ac[0] - ab[0] * ac[2], nz = ab[0] * ac[1] - ab[1] * ac[0];
+    const cx = (a[0] + b[0] + c[0]) / 3, cy = (a[1] + b[1] + c[1]) / 3, cz = (a[2] + b[2] + c[2]) / 3;
+    const flip = out ? nx * out[0] + ny * out[1] + nz * out[2] < 0 : nx * cx + nz * cz < 0;
+    pos.push(...a, ...(flip ? c : b), ...(flip ? b : c));
+    return cy;
+  };
+  for (let k = 0; k < rings.length - 1; k++) {
+    const A = rings[k], B = rings[k + 1];
+    const same = Math.abs((A[2] || 0) - (B[2] || 0)) < 1e-6;
+    for (let i = 0; i < n; i++) {
+      const a0 = pt(A, i), a1 = pt(A, i + 1), b0 = pt(B, i), b1 = pt(B, i + 1);
+      if (same) { tri(a0, b0, a1); tri(a1, b0, b1); continue; }
+      const later = (B[2] || 0) > (A[2] || 0);
+      if (later) { tri(a0, b0, a1); tri(a1, b0, b1); } else { tri(a0, b1, a1); tri(a0, b0, b1); }
+    }
   }
+  const cap = (ring, up) => {
+    const c = [0, ring[0], 0];
+    for (let i = 0; i < n; i++) tri(c, pt(ring, i), pt(ring, i + 1), [0, up ? 1 : -1, 0]);
+  };
+  if (bottom) cap(rings[0], false);
+  if (top) cap(rings[rings.length - 1], true);
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.computeVertexNormals(); // non-indexed, so every facet is flat
   return g;
 }
 
-// Caps sit on the neck. Each returns meshes positioned above y = top.
-const CAPS = {
-  fluted(top, m) {
-    const pts = [];
-    const n = 32 * 6;
-    for (let i = 0; i < n; i++) { const a = (i / n) * Math.PI * 2, r = 0.0155 - 0.00045 * (0.5 - 0.5 * Math.cos(2 * Math.PI * (i % 6) / 6)); pts.push(new THREE.Vector2(Math.cos(a) * r, Math.sin(a) * r)); }
-    const cap = new THREE.Mesh(riser(new THREE.Shape(pts), 0.034, 0.0015, 1, 3), m.metal);
-    cap.position.y = top + 0.006;
-    const collar = new THREE.Mesh(lathe([[0, 0], [0.0098, 0], [0.0102, 0.003], [0.0098, 0.006], [0, 0.006]], 48), m.metal);
-    collar.position.y = top;
-    return [collar, cap];
-  },
-  sphere(top, m) {
-    const collar = new THREE.Mesh(lathe([[0, 0], [0.008, 0], [0.0085, 0.003], [0.008, 0.005], [0, 0.005]], 48), m.metal);
-    collar.position.y = top;
-    const s = new THREE.Mesh(new THREE.SphereGeometry(0.0145, 48, 32), m.stone);
-    s.position.y = top + 0.005 + 0.0135;
-    return [collar, s];
-  },
-  cube(top, m) {
-    const g = new THREE.BoxGeometry(0.03, 0.03, 0.03, 1, 1, 1);
-    const c = new THREE.Mesh(riser(roundedRect(0.03, 0.03, 0.002), 0.03, 0.0012, 4, 3), m.matte);
-    c.position.y = top;
-    c.rotation.y = Math.PI / 4;
-    g.dispose();
-    return [c];
-  },
-  spire(top, m) {
-    const g = new THREE.CylinderGeometry(0.0006, 0.0082, 0.05, 6, 1);
-    g.translate(0, 0.025, 0);
-    const s = new THREE.Mesh(crease(g.toNonIndexed(), 0.3), m.silver);
-    s.position.y = top;
-    return [s];
-  },
-  disc(top, m) {
-    const collar = new THREE.Mesh(lathe([[0, 0], [0.011, 0], [0.011, 0.004], [0, 0.004]], 48), m.metal);
-    collar.position.y = top;
-    const d = new THREE.Mesh(lathe([[0, 0], [0.024, 0], [0.0255, 0.002], [0.0255, 0.010], [0.024, 0.012], [0, 0.012]], 64), m.wood);
-    d.position.y = top + 0.004;
-    return [collar, d];
-  },
-};
-
-const geoCache = new Map(), capCache = new Map();
-export function glassShape(shape) {
-  if (!geoCache.has(shape)) { const g = GLASS[shape](); surfaceUV(g.geo, shape); geoCache.set(shape, g); }
-  return geoCache.get(shape);
+// Radius of a profile at height y (for the perfume inside).
+function radiusAt(rings, y) {
+  for (let k = 0; k < rings.length - 1; k++) {
+    const [y0, r0] = rings[k], [y1, r1] = rings[k + 1];
+    if (y >= y0 && y <= y1) return r0 + (r1 - r0) * ((y - y0) / Math.max(1e-6, y1 - y0));
+  }
+  return rings[rings.length - 1][1];
+}
+// The perfume: the inside of the shell, a wall thickness in from the glass, from the top of the solid base to the fill line.
+function liquidGeometry(rings, n, opts, { base, fill, wall }) {
+  const ys = [base, ...rings.map((r) => r[0]).filter((y) => y > base && y < fill), fill];
+  const inner = ys.map((y) => {
+    const tw = rings.reduce((t, r) => (r[0] <= y ? r[2] || 0 : t), 0);
+    return [y, Math.max(0.002, radiusAt(rings, y) - wall), tw];
+  });
+  return gemGeometry(inner, n, opts);
 }
 
-// Build one bottle. mats: { glass, metal, stone, matte, silver, wood }. Returns { group, glass, info }.
-export function buildBottle(shape, cap, mats) {
-  const info = glassShape(shape);
+// Each cut: shell rings, facet count, options, where the perfume sits, the neck top, and the stopper and collar.
+const CUTS = {
+  // Amber Hour: the crown. An eight-sided body that widens to a shoulder of kite facets.
+  crown: {
+    n: 8, rings: [[0, 0.021], [0.004, 0.025], [0.046, 0.031], [0.058, 0.031, 0.5], [0.07, 0.019], [0.077, 0.0105, 0.5], [0.082, 0.0095, 0.5]],
+    liquid: { base: 0.007, fill: 0.06, wall: 0.0035 }, top: 0.082,
+    stone: { n: 8, rings: [[0, 0.006], [0.01, 0.016], [0.013, 0.016, 0.5], [0.022, 0.0085], [0.024, 0.0075, 0.5]] }, collar: { r: 0.0105, rows: 3 },
+  },
+  // Fig Night: a faceted orb, flattened front to back, cut like a round brilliant.
+  orb: {
+    n: 12, opts: { sz: 0.62 }, rings: [[0, 0.016], [0.004, 0.026], [0.016, 0.036, 0.5], [0.034, 0.041], [0.052, 0.038, 0.5], [0.066, 0.029], [0.075, 0.016, 0.5], [0.079, 0.008, 0.5]],
+    liquid: { base: 0.005, fill: 0.058, wall: 0.004 }, top: 0.079,
+    stone: { n: 10, rings: [[0, 0.004], [0.004, 0.011], [0.009, 0.0145, 0.5], [0.016, 0.0145], [0.022, 0.011, 0.5], [0.026, 0.005]] }, collar: { r: 0.0088, rows: 1 },
+  },
+  // Smoke Garden: a six-sided tower with a stepped shoulder.
+  tower: {
+    n: 6, opts: { rot: Math.PI / 6 }, rings: [[0, 0.019], [0.004, 0.0225], [0.078, 0.0225], [0.084, 0.019, 0.5], [0.09, 0.0125], [0.095, 0.0085, 0.5]],
+    liquid: { base: 0.008, fill: 0.074, wall: 0.0035 }, top: 0.095,
+    stone: { n: 6, opts: { rot: Math.PI / 6 }, rings: [[0, 0.013], [0.022, 0.0155], [0.026, 0.0115, 0.5], [0.028, 0.006, 0.5]] }, collar: { r: 0.0095, rows: 1 },
+  },
+  // Salt Iris: a tall six-sided spire that narrows to a long crown.
+  spire: {
+    n: 6, rings: [[0, 0.019], [0.004, 0.022], [0.064, 0.018], [0.084, 0.012, 0.5], [0.098, 0.0075], [0.102, 0.007]],
+    liquid: { base: 0.007, fill: 0.07, wall: 0.003 }, top: 0.102,
+    stone: { n: 6, rings: [[0, 0.004], [0.006, 0.0105], [0.011, 0.011, 0.5], [0.048, 0.0006, 0.5]] }, collar: { r: 0.0085, rows: 2 },
+  },
+  // Vetiver Rain: a wide emerald cut with stepped tiers at the base and the shoulder.
+  emerald: {
+    n: 8, opts: { sx: 1.45, sz: 0.85, rot: Math.PI / 8 }, rings: [[0, 0.019], [0.003, 0.0235], [0.007, 0.026], [0.048, 0.026], [0.054, 0.023], [0.059, 0.018], [0.063, 0.0125], [0.066, 0.0095]],
+    liquid: { base: 0.006, fill: 0.05, wall: 0.0035 }, top: 0.066,
+    stone: { n: 8, opts: { sx: 1.35, sz: 0.85, rot: Math.PI / 8 }, rings: [[0, 0.009], [0.005, 0.0145], [0.012, 0.0145], [0.016, 0.011], [0.018, 0.008]] }, collar: { r: 0.0105, rows: 1 },
+  },
+};
+export const CUT_NAMES = Object.keys(CUTS);
+
+const cache = new Map();
+function parts(cut) {
+  if (cache.has(cut)) return cache.get(cut);
+  const C = CUTS[cut];
+  const shell = gemGeometry(C.rings, C.n, C.opts);
+  const liquid = liquidGeometry(C.rings, C.n, C.opts, C.liquid);
+  const stone = gemGeometry(C.stone.rings, C.stone.n, C.stone.opts);
+  // Collar: a gold band with rows of crystals around it, and a thin gold lip under the stone.
+  const rows = C.collar.rows, band = 0.0011 + rows * 0.0022;
+  const collar = new THREE.CylinderGeometry(C.collar.r, C.collar.r, band, 40, 1);
+  collar.translate(0, band / 2, 0);
+  const lip = new THREE.CylinderGeometry(C.collar.r * 1.12, C.collar.r * 1.12, 0.0012, 40, 1);
+  lip.translate(0, band + 0.0006, 0);
+  const gem = new THREE.OctahedronGeometry(0.00095, 0);
+  gem.scale(1, 0.7, 1);
+  const per = Math.round((2 * Math.PI * C.collar.r) / 0.0021);
+  const set = [];
+  for (let k = 0; k < rows; k++) for (let i = 0; i < per; i++) {
+    const a = ((i + (k % 2) * 0.5) / per) * Math.PI * 2;
+    set.push(new THREE.Matrix4().compose(new THREE.Vector3(Math.sin(a) * (C.collar.r + 0.0002), 0.0012 + k * 0.0022, Math.cos(a) * (C.collar.r + 0.0002)),
+      new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.PI / 2, a, 0, 'YXZ')), new THREE.Vector3(1, 1, 1)));
+  }
+  const p = { shell, liquid, stone, collar, lip, gem, set, band, C };
+  cache.set(cut, p);
+  return p;
+}
+
+// Build one bottle. mats: { shell, liquid, stone, metal, crystal }. Returns { group, glass, info }.
+export function buildBottle(cut, mats) {
+  const p = parts(cut), C = p.C;
   const group = new THREE.Group();
-  const glass = new THREE.Mesh(info.geo, mats.glass);
+  const glass = new THREE.Mesh(p.shell, mats.shell);
   glass.name = 'glass';
-  const key = `${cap}@${info.top}`;
-  if (!capCache.has(key)) capCache.set(key, CAPS[cap](info.top, mats).map((m) => ({ geo: m.geometry, mat: Object.keys(mats).find((k) => mats[k] === m.material), pos: m.position.clone(), rot: m.rotation.clone() })));
-  group.add(glass, ...capCache.get(key).map((c) => { const m = new THREE.Mesh(c.geo, mats[c.mat]); m.position.copy(c.pos); m.rotation.copy(c.rot); return m; }));
+  glass.renderOrder = 4;
+  const liquid = new THREE.Mesh(p.liquid, mats.liquid);
+  liquid.renderOrder = 2;
+  const collar = new THREE.Mesh(p.collar, mats.metal);
+  const lip = new THREE.Mesh(p.lip, mats.metal);
+  const gems = new THREE.InstancedMesh(p.gem, mats.crystal, p.set.length);
+  p.set.forEach((m, i) => gems.setMatrixAt(i, m));
+  const neck = new THREE.Group();
+  neck.position.y = C.top - 0.002;
+  neck.add(collar, lip, gems);
+  const stone = new THREE.Mesh(p.stone, mats.stone);
+  stone.position.y = C.top - 0.002 + p.band + 0.0012;
+  stone.renderOrder = 3;
+  group.add(liquid, glass, neck, stone);
   const box = new THREE.Box3().setFromObject(group);
-  return { group, glass, info: { ...info, height: box.max.y, width: box.max.x - box.min.x, depth: box.max.z - box.min.z } };
+  const info = { top: C.top, height: box.max.y, width: box.max.x - box.min.x, depth: box.max.z - box.min.z, w: box.max.x - box.min.x, d: box.max.z - box.min.z };
+  return { group, glass, liquid, stone, info };
 }

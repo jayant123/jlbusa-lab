@@ -117,7 +117,7 @@ test.describe('NUITHRA', () => {
     await expect(page.locator('[data-name]')).toHaveText('Vetiver Rain');
     await scent(page, 'Salt Iris');
     await expect(page.locator('[data-list="top"]')).toHaveText('Sea salt · Pear');
-    await expect(page.locator('[data-bottle]')).toContainText('obelisk');
+    await expect(page.locator('[data-bottle]')).toContainText('spire');
   });
 
   test('discovery set: pick any three', async ({ page }) => {

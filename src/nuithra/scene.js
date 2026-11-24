@@ -1,4 +1,4 @@
-// NUITHRA 3D scene: five bottles of colored glass on a ledge of polished black stone. A warm light behind them
+// NUITHRA 3D scene: five cut-glass bottles of colored perfume on a ledge of polished black stone. A warm light behind them
 // sweeps along the row. Where it passes through a bottle the stone takes that bottle's color. The chosen bottle
 // steps forward. Scroll moves the camera between the collection, a close look at the glass, the colored light
 // on the stone and the shop. Size scales the chosen bottle.
@@ -6,11 +6,9 @@ import * as THREE from 'three';
 import { createStage } from '../kit/stage.js';
 import { ORDER, SCENTS, sizeScale } from './scents.js';
 import { buildBottle } from './bottles.js';
-import { etchMaps } from './etch.js';
 
 const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
 const WHITE = new THREE.Color(1, 1, 1);
-const THICK = { slab: 0.032, moon: 0.027, column: 0.05, obelisk: 0.036, octagon: 0.07 };
 
 // Studio for reflections: tall soft boxes left and right draw long highlights down the glass edges.
 function studio() {
@@ -25,6 +23,12 @@ function studio() {
   panel(0.5, 6, 0xfff6ee, 5, [-3.2, 1.2, 1.6]);
   panel(0.4, 6, 0xffd2a0, 4, [3.4, 1, 1.2]);
   panel(4, 0.25, 0xffffff, 1.4, [0, 3.6, 2.6]);
+  // A ring of small bright cards at different heights, like a jeweler's light tent. Every facet finds one.
+  for (let i = 0; i < 14; i++) {
+    const a = (i / 14) * Math.PI * 2, r = 3.6, y = 0.4 + (i % 3) * 1.1;
+    panel(0.35 + (i % 2) * 0.3, 0.9 + (i % 4) * 0.4, i % 3 ? 0xfff3e6 : 0xffe0bd, 3 + (i % 3), [Math.cos(a) * r, y, Math.sin(a) * r]);
+  }
+  panel(1.2, 1.2, 0xffffff, 2.5, [0, 4.5, 0]);
   return env;
 }
 
@@ -123,32 +127,35 @@ export async function createNuithraScene(canvas, { tier, reducedMotion, onReady,
   scene.add(wall, wallRefl, stone, lip, edge);
 
   // --- Bottles -------------------------------------------------------------------------------------------------
-  const metal = new THREE.MeshPhysicalMaterial({ color: 0xd8b06a, metalness: 1, roughness: 0.2 });
-  const shared = {
-    metal,
-    stone: new THREE.MeshPhysicalMaterial({ color: 0x2a0c22, roughness: 0.12, clearcoat: 1, clearcoatRoughness: 0.04 }),
-    matte: new THREE.MeshStandardMaterial({ color: 0x0c0b0b, roughness: 0.62 }),
-    silver: new THREE.MeshPhysicalMaterial({ color: 0xdfe2ea, metalness: 1, roughness: 0.12 }),
-    wood: new THREE.MeshStandardMaterial({ color: 0x8a5a34, roughness: 0.55 }),
-  };
-  const mirror = (m) => new THREE.MeshBasicMaterial({ color: (m.color || WHITE).clone().multiplyScalar(0.35), transparent: true, opacity: 0.5, depthWrite: false });
-  const mirrorShared = Object.fromEntries(Object.entries(shared).map(([k, m]) => [k, mirror(m)]));
-  const pool = poolTex(), shadow = blobTex('rgba(0,0,0,0.85)', 'rgba(0,0,0,0)'), glowT = blobTex('rgba(255,255,255,0.9)', 'rgba(255,255,255,0)');
-
-  // Glass with its etching: frost is paler and rough, engraved lines have depth. The tint lives in the color map.
-  const RES = { high: 768, mid: 512, low: 384 }[tier] || 512;
-  function glassMat(s) {
-    const c = new THREE.Color(s.glass);
-    const tint = rich ? WHITE.clone().lerp(c, 0.55) : c;
-    const maps = etchMaps(s.shape, s.name, `#${tint.getHexString()}`, RES);
+  // Materials. The glass shell is clear: it adds only its reflections, so every facet catches the light and the
+  // perfume inside shows through. The perfume carries the color and bends the light behind it.
+  const METAL = { gold: 0xe0b56a, silver: 0xe3e6ee, gunmetal: 0x55575c };
+  const metals = Object.fromEntries(Object.entries(METAL).map(([k, c]) => [k, new THREE.MeshPhysicalMaterial({ color: c, metalness: 1, roughness: 0.16 })]));
+  const crystal = new THREE.MeshPhysicalMaterial({ color: 0xffffff, metalness: 0.4, roughness: 0.03, envMapIntensity: 3.2, iridescence: 0.7, iridescenceIOR: 1.8, emissive: 0x2a2520 });
+  // Clear thick glass: it bends the room behind it. It writes no depth, so the perfume inside draws over it.
+  const shellMat = rich
+    ? new THREE.MeshPhysicalMaterial({ color: 0xffffff, transmission: 1, thickness: 0.012, ior: 1.5, roughness: 0, specularIntensity: 1, envMapIntensity: 1.6, depthWrite: false, dispersion: tier === 'high' ? 0.4 : 0 })
+    : new THREE.MeshPhysicalMaterial({ color: 0xffffff, transparent: true, opacity: 0.12, roughness: 0, envMapIntensity: 2.4, clearcoat: 1, depthWrite: false });
+  // Sparkle: the reflections of every facet, front and back, added on top.
+  const sparkle = new THREE.MeshPhysicalMaterial({ color: 0x000000, roughness: 0, metalness: 0, ior: 1.6, specularIntensity: 1, envMapIntensity: 2.2, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+  const edgeMat = new THREE.LineBasicMaterial({ color: 0xfff4e8, transparent: true, opacity: 0.16, blending: THREE.AdditiveBlending, depthWrite: false });
+  const edgeCache = new Map();
+  function liquidMat(hex) {
+    const c = new THREE.Color(hex);
     if (rich) {
-      return new THREE.MeshPhysicalMaterial({ color: WHITE, ...maps, normalScale: new THREE.Vector2(0.7, 0.7), transmission: 1, thickness: THICK[s.shape], ior: 1.5, roughness: 1,
-        attenuationColor: c, attenuationDistance: THICK[s.shape] * 2.2, specularIntensity: 1, envMapIntensity: 1.5, dispersion: tier === 'high' ? 0.25 : 0,
-        emissive: c, emissiveIntensity: 0 });
+      return new THREE.MeshPhysicalMaterial({ color: WHITE.clone().lerp(c, 0.45), transmission: 1, thickness: 0.035, ior: 1.36, roughness: 0, attenuationColor: c, attenuationDistance: 0.05,
+        specularIntensity: 0.6, envMapIntensity: 1, dispersion: tier === 'high' ? 0.15 : 0, emissive: c, emissiveIntensity: 0 });
     }
-    return new THREE.MeshPhysicalMaterial({ color: WHITE, ...maps, normalScale: new THREE.Vector2(0.7, 0.7), transparent: true, opacity: 0.82, roughness: 1, clearcoat: 1, clearcoatRoughness: 0.02, envMapIntensity: 2, emissive: c, emissiveIntensity: 0.3 });
+    return new THREE.MeshPhysicalMaterial({ color: c, transparent: true, opacity: 0.86, roughness: 0.02, clearcoat: 1, envMapIntensity: 1.6, emissive: c, emissiveIntensity: 0.3 });
   }
-  if (document.fonts) await Promise.all(['400 40px "Libre Caslon Display"', '500 40px "Schibsted Grotesk"'].map((f) => document.fonts.load(f))).catch(() => {});
+  function stoneMat(spec) {
+    if (spec === 'onyx') return new THREE.MeshPhysicalMaterial({ color: 0x0b0a0b, roughness: 0.05, clearcoat: 1, clearcoatRoughness: 0.02, envMapIntensity: 1.8 });
+    const c = new THREE.Color(spec);
+    if (rich) return new THREE.MeshPhysicalMaterial({ color: WHITE.clone().lerp(c, 0.6), transmission: 1, thickness: 0.02, ior: 1.7, roughness: 0, attenuationColor: c, attenuationDistance: 0.03, specularIntensity: 1, envMapIntensity: 2.2, dispersion: tier === 'high' ? 0.5 : 0 });
+    return new THREE.MeshPhysicalMaterial({ color: c, roughness: 0.02, clearcoat: 1, transparent: true, opacity: 0.9, envMapIntensity: 2.2 });
+  }
+  const mirrorOf = (c, o = 0.45) => new THREE.MeshBasicMaterial({ color: new THREE.Color(c).multiplyScalar(0.55), transparent: true, opacity: o, depthWrite: false });
+  const pool = poolTex(), shadow = blobTex('rgba(0,0,0,0.85)', 'rgba(0,0,0,0)'), glowT = blobTex('rgba(255,255,255,0.9)', 'rgba(255,255,255,0)');
 
   const pause = () => new Promise((r) => setTimeout(r, 0));
   const bottles = [];
@@ -157,12 +164,20 @@ export async function createNuithraScene(canvas, { tier, reducedMotion, onReady,
     bottles.push((() => {
     const s = SCENTS[handle];
     const color = new THREE.Color(s.glass);
-    const mats = { ...shared, glass: glassMat(s) };
-    const { group, glass, info } = buildBottle(s.shape, s.cap, mats);
+    const mats = { shell: shellMat, liquid: liquidMat(s.glass), stone: stoneMat(s.stone), metal: metals[s.metal], crystal };
+    const { group, glass, liquid, info } = buildBottle(s.shape, mats);
+    glass.renderOrder = 1;
+    liquid.renderOrder = 2;
+    const spark = new THREE.Mesh(glass.geometry, sparkle);
+    spark.renderOrder = 6;
+    if (!edgeCache.has(s.shape)) edgeCache.set(s.shape, new THREE.EdgesGeometry(glass.geometry, 12));
+    const edges = new THREE.LineSegments(edgeCache.get(s.shape), edgeMat);
+    edges.renderOrder = 7;
+    group.add(spark, edges);
     const holder = new THREE.Group();
     holder.add(group);
     glass.userData.handle = handle;
-    const refl = buildBottle(s.shape, s.cap, { ...mirrorShared, glass: new THREE.MeshBasicMaterial({ color: color.clone().multiplyScalar(0.8), transparent: true, opacity: 0.42, depthWrite: false }) }).group;
+    const refl = buildBottle(s.shape, { shell: mirrorOf(0xffffff, 0.06), liquid: mirrorOf(s.glass, 0.5), stone: mirrorOf(s.stone === 'onyx' ? 0x111111 : s.stone), metal: mirrorOf(METAL[s.metal]), crystal: mirrorOf(0xffffff) }).group;
     refl.scale.y = -1;
     holder.add(refl);
     // Light pool in front of the bottle, contact shadow under it, glow behind it.
@@ -177,7 +192,7 @@ export async function createNuithraScene(canvas, { tier, reducedMotion, onReady,
     glow.position.set(0, info.height * 0.45, -0.05);
     holder.add(lightPool, contact, glow);
     scene.add(holder);
-    return { handle, s, color, holder, group, glass, info, lightPool, contact, glow, pos: new THREE.Vector3(), fwd: 0, scale: 1, yaw: 0, lit: 0 };
+    return { handle, s, color, holder, group, glass, liquid, info, lightPool, contact, glow, pos: new THREE.Vector3(), fwd: 0, scale: 1, yaw: 0, lit: 0 };
     })());
   }
   await pause();
@@ -301,8 +316,8 @@ export async function createNuithraScene(canvas, { tier, reducedMotion, onReady,
       b.lightPool.material.opacity = clamp(b.lit * 0.75 * boost);
       b.glow.material.opacity = clamp(b.lit * (rich ? 0.38 : 0.5));
       b.glow.lookAt(cam.pos);
-      if (rich) b.glass.material.emissiveIntensity = b.lit * 0.12;
-      else b.glass.material.emissiveIntensity = 0.12 + b.lit * 0.35;
+      if (rich) b.liquid.material.emissiveIntensity = b.lit * 0.18;
+      else b.liquid.material.emissiveIntensity = 0.12 + b.lit * 0.35;
     });
 
     const [p, g] = viewOf(view);
