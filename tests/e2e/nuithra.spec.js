@@ -50,6 +50,19 @@ test.describe('NUITHRA', () => {
     await expect(dialog).toContainText('NUITHRA Discovery Set');
   });
 
+  test('the test checkout unlocks the store first, then opens the checkout', async ({ page }) => {
+    await mock(page);
+    await page.goto(URL);
+    await page.getByRole('button', { name: 'Add to cart' }).click();
+    await page.getByRole('button', { name: /Checkout \(1\)/ }).click();
+    await page.getByRole('button', { name: /real checkout/ }).click();
+    const unlock = page.getByRole('link', { name: /Unlock the test store/ });
+    const go = page.getByRole('link', { name: /Open the test checkout/ });
+    await expect(unlock).toHaveAttribute('href', 'https://example.myshopify.com/password');
+    await expect(go).toHaveAttribute('href', 'https://example.myshopify.com/cart/c/s1?key=k');
+    await expect(page.getByRole('dialog')).toContainText('nuithra-demo');
+  });
+
   test('compares all five scents', async ({ page }) => {
     await mock(page);
     await page.goto(URL);

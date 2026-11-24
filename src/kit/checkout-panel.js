@@ -1,5 +1,5 @@
 // The concept checkout: real cart contents, payment switched off, a call to action, and an optional
-// link into Shopify's real checkout in test mode (development stores need the storefront password).
+// link into Shopify's real checkout in test mode. Development stores need the storefront password first.
 const money = (n, c = 'USD') => new Intl.NumberFormat('en-US', { style: 'currency', currency: c, maximumFractionDigits: 0 }).format(n);
 const esc = (s) => String(s).replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
 
@@ -36,8 +36,18 @@ export function mountCheckoutPanel(root, { cart, brand, bookingUrl, storePasswor
     d.querySelector('.kit-panel__close').addEventListener('click', close);
     d.querySelector('.kit-panel__reveal').addEventListener('click', () => {
       const box = d.querySelector('.kit-panel__real');
-      box.innerHTML = `<p>Shopify asks for the store password first. It is <code>${esc(storePassword)}</code>. Enter <code>1</code> as the card number. This is Shopify's test gateway. No money moves.</p>
-        <a class="kit-panel__go" href="${esc(cart.checkoutUrl() || '#')}" target="_blank" rel="noopener">Open the test checkout</a>`;
+      const url = cart.checkoutUrl() || '#';
+      let unlockUrl = '#';
+      try { unlockUrl = `${new URL(url).origin}/password`; } catch { /* no cart yet */ }
+      // Shopify locks test stores with a password. Its password page always lands on the store's home page.
+      // So the visitor unlocks the store in one tab first. After that the checkout link goes straight to checkout.
+      box.innerHTML = `<p>Shopify locks test stores with a password. Unlock the store first. Then come back here for the checkout.</p>
+        <ol class="kit-panel__steps">
+          <li><a class="kit-panel__unlock" href="${esc(unlockUrl)}" target="_blank" rel="noopener">Unlock the test store</a>
+            <span>Enter the password <code>${esc(storePassword)}</code>. Shopify then shows the store's home page. Close that tab.</span></li>
+          <li><a class="kit-panel__go" href="${esc(url)}" target="_blank" rel="noopener">Open the test checkout</a>
+            <span>Your cart is waiting there. Enter <code>1</code> as the card number. This is Shopify's test gateway. No money moves.</span></li>
+        </ol>`;
       box.querySelector('a').focus();
     });
   }

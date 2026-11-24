@@ -17,7 +17,9 @@
 .kit-panel__cta{display:block;text-align:center;margin:18px 0 10px;padding:15px;background:var(--k-accent);color:var(--k-bg);font-weight:600;text-decoration:none;letter-spacing:.02em}
 .kit-panel__reveal{background:none;border:0;color:var(--k-mute);text-decoration:underline;font:inherit;font-size:.85rem;cursor:pointer;padding:6px 0}
 .kit-panel__real p{font-size:.85rem;color:var(--k-mute)}.kit-panel__real code{color:var(--k-fg)}
-.kit-panel__go{color:var(--k-fg);font-size:.9rem}
+.kit-panel__go,.kit-panel__unlock{color:var(--k-fg);font-size:.95rem;font-weight:600}
+.kit-panel__steps{margin:.6rem 0 0;padding-left:1.2rem;display:grid;gap:.7rem;font-size:.85rem;color:var(--k-mute)}
+.kit-panel__steps span{display:block;margin-top:.2rem}.kit-panel__steps code{color:var(--k-fg)}
 .kit-panel a:focus-visible,.kit-panel button:focus-visible{outline:2px solid var(--k-accent);outline-offset:3px}
 .concept-foot{font-family:var(--k-font);color:var(--k-mute);font-size:.82rem;padding:28px max(20px,4vw) calc(28px + env(safe-area-inset-bottom))}
 .concept-foot a{color:inherit}
