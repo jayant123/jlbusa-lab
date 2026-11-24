@@ -12,6 +12,7 @@ from mathutils import Vector
 sys.path.insert(0, os.path.dirname(__file__))
 import common as C  # noqa: E402
 import ostrel_watch as W  # noqa: E402
+import plintha_set as PS  # noqa: E402
 
 # Axial explosion (meters along the watch axis) used for stills and the reel; the page uses src/ostrel/explode.js.
 EXPLODE = {'crystal': 0.030, 'bezel': 0.024, 'hands_second': 0.019, 'hands_minute': 0.016, 'hands_hour': 0.013, 'dial': 0.009,
@@ -164,9 +165,69 @@ def ostrel(out, samples, only=None):
     bpy.ops.render.render(write_still=True)
 
 
+def plintha_scene(fabric='Boucle Chalk'):
+    C.reset()
+    m = PS.mats(fabric)
+    proto = {k: PS.module(k, m, 'high') for k in PS.FOOT}
+    for o in proto.values():
+        o.hide_render = True
+    PS.room('high')
+    x = 0.0
+    for k in ('arm_left', 'armless', 'armless', 'corner'):
+        o = proto[k].copy(); bpy.context.collection.objects.link(o); o.hide_render = False
+        o.location = (x, 0, 0); x += PS.FOOT[k][0]
+    y = -1.0
+    for k in ('armless', 'arm_right'):
+        o = proto[k].copy(); bpy.context.collection.objects.link(o); o.hide_render = False
+        o.location = (x, y, 0); o.rotation_euler.z = -math.pi / 2; y -= PS.FOOT[k][0]
+    ot = proto['ottoman'].copy(); bpy.context.collection.objects.link(ot); ot.hide_render = False
+    ot.location = (1.3, -1.55, 0)
+    return proto
+
+
+def plintha(out, samples, only=None):
+    plintha_scene()
+    render_setup(samples, 1600, 1000)
+    s = bpy.context.scene
+    s.world.node_tree.nodes['Background'].inputs['Color'].default_value = (0.70, 0.66, 0.60, 1)
+    s.world.node_tree.nodes['Background'].inputs['Strength'].default_value = 0.75
+    sun = bpy.data.lights.new('sun_day', 'SUN'); sun.energy = 5.5; sun.angle = math.radians(2.5); sun.color = (1.0, 0.95, 0.86)
+    so = bpy.data.objects.new('sun_day', sun); bpy.context.collection.objects.link(so)
+    so.rotation_euler = (math.radians(58), math.radians(-22), math.radians(-48))
+    area('fill', (1.5, -5.0, 2.2), (math.radians(70), 0, 0), 3.0, 120, (0.92, 0.95, 1.0))
+    cam = camera((-0.55, -4.9, 1.05), (1.95, -0.85, 0.42), lens=30, fstop=8)
+    s.render.filepath = os.path.join(out, 'room-day.webp')
+    if only in (None, 'room'):
+        bpy.ops.render.render(write_still=True)
+    if only == 'room':
+        return
+    tgt = (0.62, -0.55, 0.5)
+    cam.location = (0.15, -1.55, 0.72)
+    look_at(cam, tgt)
+    cam.data.lens = 70
+    cam.data.dof.aperture_fstop = 2.8
+    cam.data.dof.focus_distance = (cam.location - Vector(tgt)).length
+    s.render.filepath = os.path.join(out, 'fabric.webp')
+    if only in (None, 'fabric'):
+        bpy.ops.render.render(write_still=True)
+    cam.location = (-0.55, -4.9, 1.05)
+    look_at(cam, (1.95, -0.85, 0.42))
+    cam.data.lens = 30
+    cam.data.dof.aperture_fstop = 8
+    cam.data.dof.focus_distance = (cam.location - Vector((1.95, -0.85, 0.42))).length
+    sun.energy = 0.0
+    s.world.node_tree.nodes['Background'].inputs['Strength'].default_value = 0.03
+    area('lamp_evening', (3.9, 0.3, 1.6), (0, 0, 0), 0.4, 60, (1.0, 0.68, 0.38), shape='DISK')
+    area('lamp_low', (-0.8, -1.9, 0.6), (math.radians(90), 0, math.radians(-60)), 0.3, 25, (1.0, 0.62, 0.32), shape='DISK')
+    bpy.data.objects['fill'].data.energy = 6
+    s.render.filepath = os.path.join(out, 'room-evening.webp')
+    if only in (None, 'evening'):
+        bpy.ops.render.render(write_still=True)
+
+
 if __name__ == '__main__':
     a = C.args()
     out = os.path.abspath(a.get('out', f"public/{a.get('brand', 'ostrel')}/stills"))
     os.makedirs(out, exist_ok=True)
-    {'ostrel': ostrel}[a.get('brand', 'ostrel')](out, int(a.get('samples', 96)), a.get('only'))
+    {'ostrel': ostrel, 'plintha': plintha}[a.get('brand', 'ostrel')](out, int(a.get('samples', 96)), a.get('only'))
     print('STILLS', out)

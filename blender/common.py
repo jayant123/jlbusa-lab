@@ -186,10 +186,11 @@ def text_mesh(name, body, font_path, size, z, mat=None, extrude=0.00005, y=0.0, 
     return bpy.context.view_layer.objects.active
 
 
-def export_glb(path, objs):
+def export_glb(path, objs, images=True):
     bpy.ops.object.select_all(action='DESELECT')
     for o in objs:
         o.select_set(True)
     bpy.ops.export_scene.gltf(filepath=path, export_format='GLB', use_selection=True, export_apply=True,
                               export_yup=True, export_materials='EXPORT', export_normals=True,
-                              export_texcoords=True, export_animations=False, export_extras=False)
+                              export_texcoords=True, export_animations=False, export_extras=False,
+                              export_image_format='AUTO' if images else 'NONE')
