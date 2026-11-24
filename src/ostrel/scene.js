@@ -122,7 +122,8 @@ export async function createOstrelScene(canvas, { tier, onReady, onFallback, red
   function frame() {
     const w = canvas.clientWidth, h = canvas.clientHeight;
     if (w > 900) { camera.setViewOffset(w, h, -w * 0.2, 0, w, h); dist = 1; }
-    else { camera.setViewOffset(w, h, 0, h * 0.2, w, h); dist = w < 600 ? 1.45 : 1.2; }
+    else { const short = w < 600 && h / w < 2; // e.g. iPhone SE: less room above the copy
+      camera.setViewOffset(w, h, 0, h * (short ? 0.34 : w < 600 ? 0.3 : 0.2), w, h); dist = short ? 2.3 : w < 600 ? 1.8 : 1.2; }
     camera.updateProjectionMatrix();
   }
   window.addEventListener('resize', frame);
