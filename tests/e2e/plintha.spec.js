@@ -5,11 +5,17 @@ const URL = '/plintha/';
 const add = (page, name) => page.getByRole('button', { name: `Add ${name}`, exact: true }).click();
 const dims = (page) => page.getByTestId('dims');
 const rows = (page) => page.getByRole('list', { name: 'Your layout' }).getByRole('listitem');
+// The configurator opens on the corner sofa. Most tests start from an empty layout.
+async function fresh(page) {
+  await page.goto(URL);
+  await page.getByRole('button', { name: 'Clear', exact: true }).click();
+  await expect(rows(page)).toHaveCount(0);
+}
 
 test.describe('PLINTHA', () => {
   test('tap to build: two armless plus an arm at each end is 390 × 100 cm', async ({ page }) => {
     await mockPlintha(page);
-    await page.goto(URL);
+    await fresh(page);
     await add(page, 'Armless');
     await add(page, 'Armless');
     await add(page, 'Left arm');
@@ -23,7 +29,7 @@ test.describe('PLINTHA', () => {
 
   test('changing the fabric changes every module', async ({ page }) => {
     await mockPlintha(page);
-    await page.goto(URL);
+    await fresh(page);
     await add(page, 'Armless');
     await add(page, 'Chaise');
     await page.getByRole('radio', { name: 'Wool Moss' }).check();
@@ -33,7 +39,7 @@ test.describe('PLINTHA', () => {
 
   test('adds the layout to the cart as grouped lines', async ({ page }) => {
     const shop = await mockPlintha(page);
-    await page.goto(URL);
+    await fresh(page);
     await add(page, 'Armless');
     await add(page, 'Armless');
     await add(page, 'Right arm');
@@ -51,7 +57,7 @@ test.describe('PLINTHA', () => {
 
   test('a share link reloads the same layout and fabric', async ({ page }) => {
     await mockPlintha(page);
-    await page.goto(URL);
+    await fresh(page);
     await add(page, 'Armless');
     await add(page, 'Corner');
     await add(page, 'Chaise');
@@ -76,7 +82,7 @@ test.describe('PLINTHA', () => {
 
   test('the day and evening switch keeps the layout', async ({ page }) => {
     await mockPlintha(page);
-    await page.goto(URL);
+    await fresh(page);
     await add(page, 'Armless');
     await add(page, 'Right arm');
     await page.getByRole('button', { name: 'Evening' }).click();
@@ -89,7 +95,7 @@ test.describe('PLINTHA', () => {
   test('keyboard: add with Enter, remove with Delete, open and close the panel', async ({ page, isMobile }) => {
     test.skip(isMobile, 'keyboard path checked on desktop');
     await mockPlintha(page);
-    await page.goto(URL);
+    await fresh(page);
     await page.getByRole('button', { name: 'Add Armless', exact: true }).focus();
     await page.keyboard.press('Enter');
     await page.keyboard.press('Enter');
@@ -109,5 +115,126 @@ test.describe('PLINTHA', () => {
     await mockPlintha(page);
     await page.goto(URL);
     await expect(page.locator('body')).toHaveAttribute('data-room', 'assembled');
+  });
+
+  test('opens on the corner sofa and loads a preset in one click', async ({ page }) => {
+    await mockPlintha(page);
+    await page.goto(URL);
+    await expect(rows(page)).toHaveCount(6);
+    await expect(page.getByRole('button', { name: 'Corner sofa' })).toHaveAttribute('aria-pressed', 'true');
+    await page.getByRole('button', { name: 'Straight three-seat' }).click();
+    await expect(dims(page)).toHaveText('300 × 100 cm');
+    await page.getByRole('button', { name: 'U shape' }).click();
+    await expect(rows(page)).toHaveCount(6);
+    await expect(dims(page)).toHaveText('370 × 295 cm');
+  });
+
+  test('select a module and edit it from the toolbar', async ({ page }) => {
+    await mockPlintha(page);
+    await page.goto(URL);
+    await page.getByRole('button', { name: 'Straight three-seat' }).click();
+    await rows(page).nth(1).getByRole('button').first().click();
+    const bar = page.getByRole('toolbar', { name: 'Selected module' });
+    await expect(bar).toBeVisible();
+    await expect(bar).toContainText('Armless');
+    await bar.getByRole('button', { name: 'Duplicate' }).click();
+    await expect(rows(page)).toHaveCount(4);
+    await expect(dims(page)).toHaveText('390 × 100 cm');
+    await bar.getByRole('button', { name: 'Move right' }).click();
+    await expect(page.getByRole('status')).toContainText('right arm');
+    await expect(rows(page).nth(3)).toContainText('Right arm');
+    await bar.getByRole('button', { name: 'Swap' }).click();
+    const menu = page.getByRole('menu');
+    await expect(menu.getByRole('menuitem', { name: /Left arm/ })).toHaveAttribute('aria-disabled', 'true');
+    await expect(menu.getByRole('menuitem', { name: /Chaise/ })).toContainText('A chaise only sits at the end of a run.');
+    await menu.getByRole('menuitem', { name: /Chaise/ }).click({ force: true });
+    await expect(page.getByRole('status')).toContainText('chaise');
+    await menu.getByRole('menuitem', { name: /Corner/ }).click();
+    await expect(menu).toBeHidden();
+    await expect(dims(page)).toHaveText('295 × 205 cm');
+    await bar.getByRole('button', { name: 'Delete' }).click();
+    await expect(rows(page)).toHaveCount(3);
+    await expect(bar).toBeHidden();
+  });
+
+  test('a module crosses the corner into the return', async ({ page }) => {
+    await mockPlintha(page);
+    await page.goto(URL);
+    await rows(page).nth(2).getByRole('button').first().click(); // the second armless, beside the corner
+    const bar = page.getByRole('toolbar', { name: 'Selected module' });
+    await bar.getByRole('button', { name: 'Move right' }).click();
+    await expect(dims(page)).toHaveText('295 × 385 cm');
+    await expect(bar.getByRole('button', { name: 'Toward corner' })).toBeVisible();
+  });
+
+  test('undo and redo with buttons and keys', async ({ page, isMobile }) => {
+    await mockPlintha(page);
+    await page.goto(URL);
+    await page.getByRole('button', { name: 'Straight three-seat' }).click();
+    await page.getByRole('button', { name: 'Undo' }).click();
+    await expect(dims(page)).toHaveText('385 × 295 cm');
+    await page.getByRole('button', { name: 'Redo' }).click();
+    await expect(dims(page)).toHaveText('300 × 100 cm');
+    test.skip(isMobile, 'keyboard shortcuts checked on desktop');
+    await page.getByRole('button', { name: 'Clear', exact: true }).click();
+    await page.keyboard.press('ControlOrMeta+z');
+    await expect(dims(page)).toHaveText('300 × 100 cm');
+    await page.keyboard.press('ControlOrMeta+Shift+z');
+    await expect(rows(page)).toHaveCount(0);
+  });
+
+  test('keyboard: arrows move the selected module and Escape deselects', async ({ page, isMobile }) => {
+    test.skip(isMobile, 'keyboard path checked on desktop');
+    await mockPlintha(page);
+    await page.goto(URL);
+    await page.getByRole('button', { name: 'Chaise sofa' }).click();
+    await rows(page).nth(1).getByRole('button').first().click();
+    await page.keyboard.press('ArrowRight');
+    await expect(rows(page).nth(2)).toHaveClass(/is-sel/);
+    await page.keyboard.press('ArrowRight');
+    await expect(page.getByRole('status')).toContainText('chaise');
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('toolbar', { name: 'Selected module' })).toBeHidden();
+  });
+
+  test('plus marks add a piece at an open end', async ({ page }) => {
+    await mockPlintha(page);
+    await fresh(page);
+    await page.getByRole('button', { name: 'Add the first module' }).click();
+    await page.getByRole('menuitem', { name: /Armless/ }).click();
+    await page.getByRole('button', { name: 'Add at the left end' }).click();
+    await page.getByRole('menuitem', { name: /Left arm/ }).click();
+    await page.getByRole('button', { name: 'Add at the right end' }).click();
+    await expect(page.getByRole('menuitem', { name: /Left arm/ })).toHaveAttribute('aria-disabled', 'true');
+    await page.getByRole('menuitem', { name: /Corner/ }).click();
+    await page.getByRole('button', { name: 'Add to the return' }).click();
+    await page.getByRole('menuitem', { name: /Right arm/ }).click();
+    await expect(dims(page)).toHaveText('295 × 205 cm');
+    await page.getByRole('button', { name: 'Add an ottoman' }).click();
+    await expect(rows(page)).toHaveCount(5);
+  });
+
+  test('refuses a second chaise and a ninth module with a reason', async ({ page }) => {
+    await mockPlintha(page);
+    await page.goto(URL);
+    await page.getByRole('button', { name: 'Chaise sofa' }).click();
+    await expect(page.getByRole('button', { name: 'Add Chaise', exact: true })).toHaveAttribute('aria-disabled', 'true');
+    await page.getByRole('button', { name: 'Add Chaise', exact: true }).click({ force: true });
+    await expect(page.getByRole('status')).toHaveText('A layout takes one chaise.');
+    await page.getByRole('button', { name: 'Lounge island' }).click();
+    for (let i = 0; i < 3; i++) await add(page, 'Ottoman');
+    await page.getByRole('button', { name: 'Add Ottoman', exact: true }).click({ force: true });
+    await expect(page.getByRole('status')).toHaveText('Eight modules is the most one layout can hold.');
+  });
+
+  test('checks the fit against a wall', async ({ page }) => {
+    await mockPlintha(page);
+    await page.goto(URL);
+    await page.getByRole('button', { name: 'Straight three-seat' }).click();
+    await page.getByLabel('Wall length').fill('340');
+    await expect(page.locator('#fit')).toHaveText('Too tight. Only 40 cm to spare. Leave at least 60 cm.');
+    await page.getByLabel('Wall length').fill('420');
+    await expect(page.locator('#fit')).toHaveText('It fits. 120 cm to spare on this wall.');
+    await expect(page.locator('.p-plan .wall')).toContainText('Wall 420 cm');
   });
 });

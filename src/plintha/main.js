@@ -1,4 +1,6 @@
-// PLINTHA page: the builder works as plain HTML (list, floor plan, totals, cart) and the 3D room joins it when it can.
+// PLINTHA page: the configurator works as plain HTML (list, floor plan, totals, cart) and the 3D room joins it when it can.
+// In the room the visitor selects a module, edits it from a floating toolbar, drags it along the sofa and adds pieces at
+// the plus marks. Every edit goes through edit.js, so the rules and the undo history are the same with or without 3D.
 import config from './config.js';
 import { createStorefront } from '../kit/storefront.js';
 import { fetchProduct } from '../kit/catalog.js';
@@ -7,26 +9,31 @@ import { mountCheckoutPanel } from '../kit/checkout-panel.js';
 import { detectTier, readDevice } from '../kit/tier.js';
 import { prefersReducedMotion } from '../kit/env.js';
 import { track } from '../kit/track.js';
-import { EMPTY, WIDTH, DEPTH, MAX_MODULES, place, remove, count, dimensions, cartLines, quote, handleOf } from './layout.js';
+import { EMPTY, WIDTH, DEPTH, MAX_MODULES, place, count, dimensions, cartLines, quote } from './layout.js';
 import { FABRICS, encode, decode } from './urlstate.js';
-import { placements } from './positions.js';
+import { placements, footprint, bounds } from './positions.js';
 import { planSvg } from './plan.js';
+import { KINDS, insertAt, removeId, moveTo, move, swap, duplicate, handles, roomFit, createHistory, PRESETS, indexOfId } from './edit.js';
 
 const $ = (s) => document.querySelector(s);
 const body = document.body;
 const reduced = prefersReducedMotion();
 const NAME = { armless: 'Armless', corner: 'Corner', arm_left: 'Left arm', arm_right: 'Right arm', chaise: 'Chaise', ottoman: 'Ottoman' };
-const ORDER = ['armless', 'arm_left', 'arm_right', 'corner', 'chaise', 'ottoman'];
 const SWATCH = { 'Boucle Chalk': '#e9e5dc', 'Wool Moss': '#5d6747', 'Linen Sand': '#c8b28c', 'Velvet Ink': '#1f2638' };
 const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 const money = (n, c = 'USD') => new Intl.NumberFormat('en-US', { style: 'currency', currency: c, maximumFractionDigits: 0 }).format(n);
+const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const build = (steps) => steps.reduce((l, [m, s]) => (l ? place(l, m, s) : l), EMPTY);
 const SHOWROOM = build([['arm_left', 'end'], ['armless', 'end'], ['armless', 'end'], ['corner', 'end'], ['armless', 'return'], ['arm_right', 'return'], ['ottoman', 'free']]);
+const START = PRESETS.find((p) => p.id === 'corner').layout;
 
 // --- State --------------------------------------------------------------------
 const fromUrl = new URLSearchParams(location.search).get('l');
-const start = fromUrl ? decode(fromUrl) : { layout: EMPTY, fabric: FABRICS[0] };
-let layout = start.layout, fabric = start.fabric, products = {}, loaded = false, scene = null, mode = 'showroom', armed = null;
+const start = fromUrl ? decode(fromUrl) : { layout: START, fabric: FABRICS[0] };
+const hist = createHistory(start.layout);
+let fabric = start.fabric, products = {}, loaded = false, scene = null, mode = 'showroom', armed = null;
+let sel = null, wallCm = 0, buildVisible = false;
+const layoutNow = () => hist.now;
 
 // --- Commerce -----------------------------------------------------------------
 const sf = createStorefront({ domain: config.domain, token: config.token });
@@ -58,6 +65,7 @@ document.addEventListener('click', (e) => {
 });
 
 addBtn.addEventListener('click', async () => {
+  const layout = layoutNow();
   const lines = cartLines(layout, fabric, products);
   if (!lines.length) return;
   addBtn.disabled = true;
@@ -74,46 +82,77 @@ addBtn.addEventListener('click', async () => {
   }
 });
 
-// --- Builder ------------------------------------------------------------------
+// --- Edits ----------------------------------------------------------------------
+const say = (msg) => { status.textContent = msg; const m = $('#sel-msg'); if (m) m.textContent = msg; };
+function commit(r, what) {
+  if (!r || r.error) { say(r?.error || 'That does not fit.'); return false; }
+  hist.push(r.layout);
+  sel = r.sel !== undefined ? r.sel : sel;
+  say('');
+  if (what) track('layout_edit', { what });
+  render();
+  return true;
+}
+const ids = (l) => placements(l, { center: false }).map((p) => p.id);
+function undo() { hist.undo(); afterHistory(); }
+function redo() { hist.redo(); afterHistory(); }
+function afterHistory() { if (sel && !ids(layoutNow()).includes(sel)) sel = null; say(''); render(); }
+function select(id) {
+  sel = id && ids(layoutNow()).includes(id) ? id : null;
+  closeMenu();
+  say('');
+  render();
+}
+
+// Palette: add the module at the first open place.
+function defaultSlot(kind) {
+  for (const s of ['end', 'return', 'start', 'free']) if (place(layoutNow(), kind, s)) return s;
+  return null;
+}
+function why(kind) {
+  const l = layoutNow();
+  if (count(l) >= MAX_MODULES) return 'Eight modules is the most one layout can hold.';
+  if (kind === 'chaise' && [...l.main, ...l.ret].includes('chaise')) return 'A layout takes one chaise.';
+  if (kind === 'corner') return 'A layout takes one corner. It goes at the end of the run.';
+  return `There is no open end for the ${NAME[kind].toLowerCase()}. Remove an arm or a chaise first.`;
+}
+function add(kind, slot = defaultSlot(kind)) {
+  const l = layoutNow();
+  const next = slot ? place(l, kind, slot) : null;
+  if (!next) { say(why(kind)); return false; }
+  const id = slot === 'start' ? 'main:0' : slot === 'end' ? `main:${next.main.length - 1}` : slot === 'return' ? `ret:${next.ret.length - 1}` : `ottoman:${next.ottomans - 1}`;
+  track('module_add', { kind, slot });
+  return commit({ layout: next, sel: id });
+}
+
+// --- Builder markup ---------------------------------------------------------------
 const icon = (kind) => {
   const w = WIDTH[kind], d = DEPTH[kind], s = 0.3;
   const back = kind === 'ottoman' ? '' : `<rect x="2" y="2" width="${w * s - 4}" height="7" rx="2" class="i-back"/>`;
   const arms = (kind === 'arm_left' ? `<rect x="2" y="2" width="7" height="${d * s - 4}" rx="2" class="i-back"/>` : '')
-    + (kind === 'arm_right' ? `<rect x="${w * s - 9}" y="2" width="7" height="${d * s - 4}" rx="2" class="i-back"/>` : '')
-    + (kind === 'corner' ? `<rect x="${w * s - 9}" y="2" width="7" height="${d * s - 4}" rx="2" class="i-back"/>` : '');
+    + (kind === 'arm_right' || kind === 'corner' ? `<rect x="${w * s - 9}" y="2" width="7" height="${d * s - 4}" rx="2" class="i-back"/>` : '');
   return `<svg viewBox="0 0 ${w * s} ${d * s}" width="${w * s}" height="${d * s}" aria-hidden="true"><rect x="1" y="1" width="${w * s - 2}" height="${d * s - 2}" rx="4"/>${back}${arms}</svg>`;
 };
-$('#palette').innerHTML = ORDER.map((k) => `<li><button type="button" class="p-mod" data-kind="${k}">
+// A small outline of a whole layout for the preset buttons.
+const glyph = (l) => {
+  const ps = placements(l);
+  const b = bounds(ps);
+  const k = 30 / Math.max(b.maxX - b.minX, b.maxZ - b.minZ);
+  const r = ps.map((p) => { const f = footprint(p); return `<rect x="${((f.minX - b.minX) * k + 1).toFixed(1)}" y="${((f.minZ - b.minZ) * k + 1).toFixed(1)}" width="${((f.maxX - f.minX) * k - 1).toFixed(1)}" height="${((f.maxZ - f.minZ) * k - 1).toFixed(1)}" rx="1.2"/>`; }).join('');
+  return `<svg viewBox="0 0 32 32" width="32" height="32" aria-hidden="true">${r}</svg>`;
+};
+$('#presets').innerHTML = PRESETS.map((p) => `<button type="button" class="p-pre" data-preset="${p.id}" aria-pressed="false">${glyph(p.layout)}<span>${p.name}</span></button>`).join('');
+$('#palette').innerHTML = KINDS.map((k) => `<li><button type="button" class="p-mod" data-kind="${k}">
   <span class="p-mod-ico">${icon(k)}</span><span class="p-mod-name"><span class="vh">Add </span>${NAME[k]}</span><span class="p-mod-size" aria-hidden="true">${WIDTH[k]} × ${DEPTH[k]}</span></button></li>`).join('');
 $('#fabrics').innerHTML = FABRICS.map((f) => `<label class="p-sw"><input type="radio" name="fabric" value="${f}"${f === fabric ? ' checked' : ''}><span class="p-sw-dot" style="--sw:${SWATCH[f]}"></span><span>${f}</span></label>`).join('');
+$('.p-sel').insertAdjacentHTML('beforeend', '<p class="p-sel-msg" id="sel-msg" aria-live="polite"></p>');
 
-function defaultSlot(kind) {
-  for (const s of ['end', 'return', 'start', 'free']) if (place(layout, kind, s)) return s;
-  return null;
-}
-function why(kind) {
-  if (count(layout) >= MAX_MODULES) return 'Eight modules is the most one layout can hold.';
-  if (kind === 'corner') return 'A layout takes one corner, at the end of the run.';
-  return `There is no open end for the ${NAME[kind].toLowerCase()}. Remove an arm or a chaise first.`;
-}
-function add(kind, slot = defaultSlot(kind)) {
-  const next = slot ? place(layout, kind, slot) : null;
-  if (!next) { status.textContent = why(kind); return false; }
-  layout = next;
-  status.textContent = '';
-  track('module_add', { kind, slot });
-  render();
-  return true;
-}
-function removeAt(id) {
-  const [where, i] = id.split(':');
-  const next = remove(layout, where === 'ottoman' ? 'ottoman' : where, Number(i));
-  if (next === layout) { status.textContent = 'That piece holds the layout together. Remove the pieces after it first.'; return; }
-  layout = next;
-  status.textContent = '';
-  render();
-}
-
+$('#presets').addEventListener('click', (e) => {
+  const b = e.target.closest('.p-pre');
+  if (!b) return;
+  const p = PRESETS.find((q) => q.id === b.dataset.preset);
+  if (commit({ layout: p.layout, sel: null }, 'preset')) say(`${p.name} loaded. Edit any piece.`);
+});
 $('#palette').addEventListener('click', (e) => {
   const b = e.target.closest('.p-mod');
   if (!b || dragged) return;
@@ -127,27 +166,22 @@ $('#fabrics').addEventListener('change', (e) => {
 });
 $('#list').addEventListener('click', (e) => {
   const r = e.target.closest('.p-rm');
-  if (r) removeAt(r.dataset.id);
+  if (r) { commit(removeId(layoutNow(), r.dataset.id), 'delete'); return; }
+  const row = e.target.closest('.p-row');
+  if (row) select(sel === row.dataset.id ? null : row.dataset.id);
 });
-$('#list').addEventListener('keydown', (e) => {
-  if ((e.key === 'Delete' || e.key === 'Backspace') && e.target.closest('[data-id]')) {
-    e.preventDefault();
-    const id = e.target.closest('[data-id]').dataset.id;
-    const idx = [...$('#list').children].findIndex((li) => li.dataset.id === id);
-    removeAt(id);
-    const rest = $('#list').querySelectorAll('.p-row');
-    (rest[Math.min(idx, rest.length - 1)] || $('#palette .p-mod'))?.focus();
-  }
-});
+$('#plan').addEventListener('click', (e) => { const g = e.target.closest('[data-id]'); if (g) select(g.dataset.id); });
+$('#undo').addEventListener('click', () => undo());
+$('#redo').addEventListener('click', () => redo());
 $('#share').addEventListener('click', async () => {
   const url = new URL(location.href);
-  url.searchParams.set('l', encode(layout, fabric));
+  url.searchParams.set('l', encode(layoutNow(), fabric));
   history.replaceState(null, '', url);
-  try { await navigator.clipboard.writeText(url.href); status.textContent = 'Link copied. Anyone with it sees this layout.'; } catch { status.textContent = 'The link is in your address bar. Copy it from there.'; }
+  try { await navigator.clipboard.writeText(url.href); say('Link copied. Anyone with it sees this layout.'); } catch { say('The link is in your address bar. Copy it from there.'); }
   track('share_layout');
 });
-$('#showroom').addEventListener('click', () => { layout = SHOWROOM; render(); });
-$('#clear').addEventListener('click', () => { layout = EMPTY; render(); });
+$('#clear').addEventListener('click', () => commit({ layout: EMPTY, sel: null }, 'clear'));
+$('#wall').addEventListener('input', (e) => { wallCm = Math.max(0, Math.min(2000, Math.round(Number(e.target.value)) || 0)); render(); });
 document.querySelectorAll('.p-light-b').forEach((b) => b.addEventListener('click', () => setLight(b.dataset.light === 'evening' ? 1 : 0, true)));
 
 function setLight(v, user) {
@@ -158,16 +192,125 @@ function setLight(v, user) {
 }
 let manualLight = null;
 
+// --- Selection toolbar -------------------------------------------------------------------
+const selBar = $('#sel');
+selBar.addEventListener('click', (e) => {
+  const b = e.target.closest('.p-sb');
+  if (!b || !sel) return;
+  const l = layoutNow();
+  const act = b.dataset.act;
+  if (act === 'close') { select(null); return; }
+  if (act === 'left' || act === 'right') { commit(move(l, sel, act === 'left' ? -1 : 1), 'move'); return; }
+  if (act === 'dup') { commit(duplicate(l, sel), 'duplicate'); return; }
+  if (act === 'del') { commit(removeId(l, sel), 'delete'); return; }
+  if (act === 'swap') openMenu(b, { swapOf: sel });
+});
+function renderSel() {
+  const l = layoutNow();
+  const p = sel && placements(l, { center: false }).find((q) => q.id === sel);
+  selBar.hidden = !p || !buildVisible;
+  if (!p) return;
+  $('#sel-name').textContent = NAME[p.kind];
+  $('#sel-size').textContent = `${WIDTH[p.kind]} × ${DEPTH[p.kind]} cm · ${fabric}`;
+  const ret = p.where === 'ret';
+  $('#sel-left').textContent = ret ? 'Toward corner' : 'Move left';
+  $('#sel-right').textContent = ret ? 'Away from corner' : 'Move right';
+  const ott = p.where === 'ottoman';
+  selBar.querySelectorAll('[data-act="left"],[data-act="right"],[data-act="swap"]').forEach((b) => { b.hidden = ott; });
+}
+
+// --- Module menu: insert at a plus mark or swap ------------------------------------------
+const menu = $('#menu');
+let menuFor = null, menuFrom = null;
+function openMenu(from, opts) {
+  const l = layoutNow();
+  menuFor = opts;
+  menuFrom = from;
+  const kinds = opts.swapOf ? KINDS.filter((k) => k !== 'ottoman') : KINDS;
+  const cur = opts.swapOf ? placements(l, { center: false }).find((q) => q.id === opts.swapOf)?.kind : null;
+  menu.innerHTML = `<p class="p-menu-h">${opts.swapOf ? `Swap the ${NAME[cur].toLowerCase()} for` : 'Add here'}</p>` + kinds.map((k) => {
+    const r = opts.swapOf ? (k === cur ? { error: 'It is this module now.' } : swap(l, opts.swapOf, k)) : insertAt(l, opts.pos, k);
+    return `<button type="button" role="menuitem" class="p-mi" data-kind="${k}"${r.error ? ' aria-disabled="true"' : ''}>${icon(k)}<span class="p-mi-t"><span>${NAME[k]}</span><small>${r.error || `${WIDTH[k]} × ${DEPTH[k]} cm`}</small></span></button>`;
+  }).join('');
+  menu.hidden = false;
+  placeMenu();
+  (menu.querySelector('.p-mi:not([aria-disabled])') || menu.querySelector('.p-mi'))?.focus();
+}
+function placeMenu() {
+  if (menu.hidden || !menuFrom) return;
+  if (innerWidth <= 640) { menu.style.left = ''; menu.style.top = ''; menu.classList.add('is-sheet'); return; }
+  menu.classList.remove('is-sheet');
+  const r = menuFrom.getBoundingClientRect();
+  const w = menu.offsetWidth, h = menu.offsetHeight;
+  const x = r.left + r.width / 2 - w / 2;
+  let y = r.bottom + 8;
+  if (y + h > innerHeight - 90) y = r.top - h - 8;
+  menu.style.left = `${Math.max(8, Math.min(innerWidth - w - 8, x))}px`;
+  menu.style.top = `${Math.max(70, y)}px`;
+}
+function closeMenu(focusBack) {
+  if (menu.hidden) return;
+  menu.hidden = true;
+  if (focusBack && menuFrom?.isConnected) menuFrom.focus();
+  menuFor = null;
+}
+menu.addEventListener('click', (e) => {
+  const b = e.target.closest('.p-mi');
+  if (!b || !menuFor) return;
+  const l = layoutNow();
+  const k = b.dataset.kind;
+  const what = menuFor.swapOf ? 'swap' : 'insert';
+  if (b.getAttribute('aria-disabled') === 'true') { say(b.querySelector('small').textContent); return; }
+  const r = menuFor.swapOf ? swap(l, menuFor.swapOf, k) : insertAt(l, menuFor.pos, k);
+  closeMenu();
+  commit(r, what);
+});
+menu.addEventListener('keydown', (e) => {
+  const items = [...menu.querySelectorAll('.p-mi')];
+  const i = items.indexOf(document.activeElement);
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); items[(i + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length].focus(); }
+  if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeMenu(true); }
+  if (e.key === 'Tab') closeMenu();
+});
+document.addEventListener('pointerdown', (e) => { if (!menu.hidden && !menu.contains(e.target) && !menuFrom?.contains(e.target)) closeMenu(); });
+
+// --- Plus marks: in the room and in the panel ----------------------------------------------
+const END_LABEL = { first: 'Add the first module', start: 'Add at the left end', end: 'Add at the right end', return: 'Add to the return', ottoman: 'Add an ottoman' };
+function onHandle(btn) {
+  const h = handles(layoutNow()).find((q) => String(q.pos) === btn.dataset.pos);
+  if (!h) return;
+  if (h.side === 'ottoman') { commit(insertAt(layoutNow(), 'ottoman', 'ottoman'), 'insert'); return; }
+  openMenu(btn, { pos: h.pos });
+}
+$('#ends').addEventListener('click', (e) => { const b = e.target.closest('.p-end'); if (b) onHandle(b); });
+const handleBox = $('#handles');
+handleBox.addEventListener('click', (e) => { const b = e.target.closest('.p-plus'); if (b) onHandle(b); });
+let handleWorld = []; // [{pos, side, x, y, z}] in the room's frame
+function handlePoints(l) {
+  return handles(l).map((h) => {
+    const kind = h.side === 'ottoman' ? 'ottoman' : h.kinds[0];
+    const r = insertAt(l, h.pos, kind);
+    const p = r.layout && placements(r.layout, { center: false }).find((q) => q.id === r.sel);
+    if (!p) return null;
+    const f = footprint(p);
+    const shift = h.pos === 0 && h.side !== 'first' ? WIDTH[kind] / 100 : 0;
+    return { ...h, x: (f.minX + f.maxX) / 2 - shift, y: 0.3, z: (f.minZ + f.maxZ) / 2 };
+  }).filter(Boolean);
+}
+
+// --- Render -------------------------------------------------------------------------------
 function render() {
+  const layout = layoutNow();
   const ps = placements(layout);
   const d = dimensions(layout);
   const n = count(layout);
   body.dataset.fabric = slug(fabric);
   $('#count').textContent = `${n} of ${MAX_MODULES} modules`;
-  $('#list').innerHTML = ps.map((p) => `<li class="p-item" data-id="${p.id}"><button type="button" class="p-row" data-id="${p.id}">
+  $('#list').innerHTML = ps.map((p) => `<li class="p-item${p.id === sel ? ' is-sel' : ''}" data-id="${p.id}"><button type="button" class="p-row" data-id="${p.id}" aria-pressed="${p.id === sel}">
       <span class="p-row-name">${NAME[p.kind]}</span><span class="p-row-meta">${fabric} · ${WIDTH[p.kind]} × ${DEPTH[p.kind]} cm</span></button>
       <button type="button" class="p-rm" data-id="${p.id}" aria-label="Remove ${NAME[p.kind].toLowerCase()}">Remove</button></li>`).join('');
-  $('#plan').innerHTML = planSvg(ps, d);
+  $('#ends').innerHTML = handles(layout).map((h) => `<button type="button" class="p-end" data-pos="${h.pos}"${h.side === 'ottoman' ? '' : ' aria-haspopup="menu"'}><span aria-hidden="true">+</span>${END_LABEL[h.side]}</button>`).join('');
+  $('#plan').innerHTML = planSvg(ps, d, { selected: sel, wallCm });
   const size = n && (d.widthCm || d.depthCm) ? `${d.widthCm} × ${d.depthCm} cm` : '0 × 0 cm';
   $('#dims').textContent = size;
   $('#bar-dims').textContent = n ? `${n} module${n > 1 ? 's' : ''} · ${size}` : 'No modules yet';
@@ -177,19 +320,59 @@ function render() {
   $('#bar-total').textContent = total;
   const soldOut = loaded && cartLines(layout, fabric, products).some((l) => !Object.values(products).flatMap((p) => p.variants).find((v) => v.id === l.variantId)?.available);
   addBtn.disabled = !loaded || !n || q.missing > 0 || soldOut;
-  if (soldOut) status.textContent = `One of these modules is sold out in ${fabric} in the demo store. Try another fabric.`;
+  if (soldOut) say(`One of these modules is sold out in ${fabric} in the demo store. Try another fabric.`);
   document.querySelectorAll('.p-mod').forEach((b) => { b.setAttribute('aria-disabled', String(!defaultSlot(b.dataset.kind))); });
-  if (mode === 'build') scene?.showLayout(layout);
+  document.querySelectorAll('.p-pre').forEach((b) => b.setAttribute('aria-pressed', String(same(PRESETS.find((p) => p.id === b.dataset.preset).layout, layout))));
+  $('#undo').disabled = !hist.canUndo;
+  $('#redo').disabled = !hist.canRedo;
+  const fit = roomFit(layout, wallCm);
+  const fitEl = $('#fit');
+  fitEl.className = `p-fit-out${fit ? (fit.fits ? ' is-ok' : ' is-bad') : ''}`;
+  fitEl.textContent = !fit ? (wallCm ? 'Add a module to check the fit.' : 'Enter your wall to check the fit.')
+    : fit.fits ? `It fits. ${fit.spareCm} cm to spare on this wall.`
+      : fit.spareCm >= 0 ? `Too tight. Only ${fit.spareCm} cm to spare. Leave at least 60 cm.` : `Too long by ${-fit.spareCm} cm for this wall.`;
+  handleWorld = handlePoints(layout);
+  handleBox.innerHTML = handleWorld.map((h) => `<button type="button" class="p-plus" data-pos="${h.pos}" tabindex="-1" aria-hidden="true"><span>+</span></button>`).join('');
+  if (mode === 'build') { scene?.showLayout(layout); scene?.select(sel); }
   if (armed && scene) scene.setGhosts(layout, armed);
+  renderSel();
 }
+
+// --- Keyboard -------------------------------------------------------------------------------
+window.addEventListener('keydown', (e) => {
+  if (!buildVisible) return;
+  const t = e.target;
+  const typing = t.closest?.('input,textarea,select,[contenteditable]');
+  const mod = e.metaKey || e.ctrlKey;
+  if (mod && !typing && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); if (e.shiftKey) redo(); else undo(); return; }
+  if (mod && !typing && e.key === 'y') { e.preventDefault(); redo(); return; }
+  if (typing || mod || document.querySelector('.kit-panel[open], dialog[open]')) return;
+  const rowId = t.closest?.('#list [data-id]')?.dataset.id;
+  if (e.key === 'Delete' || e.key === 'Backspace') {
+    const id = rowId || sel;
+    if (!id) return;
+    e.preventDefault();
+    const idx = [...$('#list').children].findIndex((li) => li.dataset.id === id);
+    commit(removeId(layoutNow(), id), 'delete');
+    if (rowId) { const rest = $('#list').querySelectorAll('.p-row'); (rest[Math.min(idx, rest.length - 1)] || $('#palette .p-mod'))?.focus(); }
+    return;
+  }
+  if (e.key === 'Escape' && sel && menu.hidden) { select(null); return; }
+  if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && sel && !t.closest?.('#menu')) {
+    e.preventDefault();
+    commit(move(layoutNow(), sel, e.key === 'ArrowLeft' ? -1 : 1), 'move');
+  }
+});
+
+new IntersectionObserver(([en]) => { buildVisible = en.isIntersecting; body.classList.toggle('in-build', buildVisible); if (!buildVisible) closeMenu(); renderSel(); }, { threshold: 0.05 }).observe($('#build'));
 
 // --- Drag from the palette into the room (desktop) ------------------------------------
 let dragged = false, drag = null;
 const chip = document.createElement('div');
 chip.className = 'p-chip';
 document.body.appendChild(chip);
-$('#palette').addEventListener('pointerover', (e) => { const b = e.target.closest('.p-mod'); if (b && scene && e.pointerType === 'mouse') { armed = b.dataset.kind; scene.setGhosts(layout, armed); } });
-$('#palette').addEventListener('pointerleave', () => { if (!drag) { armed = null; scene?.setGhosts(layout, null); } });
+$('#palette').addEventListener('pointerover', (e) => { const b = e.target.closest('.p-mod'); if (b && scene && mode === 'build' && e.pointerType === 'mouse') { armed = b.dataset.kind; scene.setGhosts(layoutNow(), armed); } });
+$('#palette').addEventListener('pointerleave', () => { if (!drag) { armed = null; scene?.setGhosts(layoutNow(), null); } });
 $('#palette').addEventListener('pointerdown', (e) => {
   const b = e.target.closest('.p-mod');
   if (!b || e.pointerType !== 'mouse' || !scene) return;
@@ -200,20 +383,19 @@ window.addEventListener('pointermove', (e) => {
   if (!drag) return;
   if (!drag.on && Math.hypot(e.clientX - drag.x, e.clientY - drag.y) > 8) {
     drag.on = true; dragged = true; armed = drag.kind;
-    scene.setGhosts(layout, armed);
+    scene.setGhosts(layoutNow(), armed);
     chip.textContent = NAME[drag.kind];
     body.classList.add('is-dragging');
   }
   if (!drag.on) return;
   chip.style.transform = `translate(${e.clientX + 14}px, ${e.clientY + 14}px)`;
-  const s = scene.hoverAt(e.clientX, e.clientY);
-  chip.classList.toggle('is-over', !!s);
+  chip.classList.toggle('is-over', !!scene.hoverAt(e.clientX, e.clientY));
 });
 window.addEventListener('pointerup', (e) => {
   if (!drag) return;
   if (drag.on) {
     const s = scene.hoverAt(e.clientX, e.clientY);
-    if (s) add(drag.kind, s); else status.textContent = 'Drop the module on one of the outlined spots.';
+    if (s) add(drag.kind, s); else say('Drop the module on one of the outlined spots.');
     scene.hoverAt(null);
     body.classList.remove('is-dragging');
     setTimeout(() => { dragged = false; }, 0);
@@ -221,11 +403,131 @@ window.addEventListener('pointerup', (e) => {
   drag = null;
 });
 
-// --- Live dimension lines over the 3D room ----------------------------------------------
+// --- In the room: tap to select, drag a module to reorder, drag the room to orbit ----------------
+function roomPointer(canvas) {
+  let g = null; // the gesture in progress
+  const center = (p) => { const f = footprint(p); return { x: (f.minX + f.maxX) / 2, z: (f.minZ + f.maxZ) / 2 }; };
+  canvas.addEventListener('pointerdown', (e) => {
+    if (mode !== 'build' || drag) return;
+    const id = scene.pieceAt(e.clientX, e.clientY);
+    const at = scene.floorAt(e.clientX, e.clientY);
+    g = { x: e.clientX, y: e.clientY, lx: e.clientX, ly: e.clientY, id, at, moved: false, mouse: e.pointerType === 'mouse', kind: null, target: null };
+    if (g.mouse) canvas.setPointerCapture(e.pointerId);
+  });
+  canvas.addEventListener('pointermove', (e) => {
+    if (mode !== 'build') return;
+    if (!g) {
+      if (e.pointerType === 'mouse') canvas.style.cursor = scene.pieceAt(e.clientX, e.clientY) ? 'pointer' : 'grab';
+      return;
+    }
+    if (!g.moved && Math.hypot(e.clientX - g.x, e.clientY - g.y) > 6) {
+      g.moved = true;
+      g.kind = g.mouse && g.id && g.at && !g.id.startsWith('ottoman') ? 'move' : 'orbit';
+      if (g.kind === 'move') {
+        if (sel !== g.id) select(g.id);
+        const p = placements(layoutNow(), { center: false }).find((q) => q.id === g.id);
+        g.offset = { x: p.x - g.at.x, z: p.z - g.at.z };
+        g.grab = { x: center(p).x - p.x, z: center(p).z - p.z };
+        body.classList.add('is-moving');
+      }
+    }
+    if (!g.moved) return;
+    if (g.kind === 'orbit') {
+      scene.orbitBy(e.clientX - g.lx, g.mouse ? e.clientY - g.ly : 0);
+      g.lx = e.clientX; g.ly = e.clientY;
+      syncViewButtons();
+      return;
+    }
+    const at = scene.floorAt(e.clientX, e.clientY);
+    if (!at) return;
+    const here = { x: at.x + g.offset.x, z: at.z + g.offset.z };
+    scene.drag(g.id, here);
+    // snap to the valid place along the sofa nearest the pointer
+    const l = layoutNow();
+    const seqLen = l.main.length + l.ret.length;
+    let best = null;
+    for (let pos = 0; pos < seqLen; pos++) {
+      const r = moveTo(l, g.id, pos);
+      if (r.error) continue;
+      const p = placements(r.layout, { center: false }).find((q) => q.id === r.sel);
+      const c = center(p);
+      const dd = Math.hypot(c.x - (here.x + g.grab.x), c.z - (here.z + g.grab.z));
+      if (!best || dd < best.d) best = { d: dd, pos, p };
+    }
+    g.target = best;
+    scene.setSnap(best ? best.p : null);
+  });
+  const end = (e, cancel) => {
+    if (!g) return;
+    const was = g;
+    g = null;
+    body.classList.remove('is-moving');
+    if (was.kind === 'move') {
+      scene.drag(null);
+      scene.setSnap(null);
+      const l = layoutNow();
+      if (!cancel && was.target && was.target.pos !== indexOfId(l, was.id)) commit(moveTo(l, was.id, was.target.pos), 'drag');
+      else render();
+      return;
+    }
+    if (cancel || was.moved) return;
+    const slot = armed ? scene.slotAt(e.clientX, e.clientY) : null;
+    if (slot) { add(armed, slot); return; }
+    const id = scene.pieceAt(e.clientX, e.clientY);
+    select(id && id === sel ? null : id);
+  };
+  canvas.addEventListener('pointerup', (e) => end(e, false));
+  canvas.addEventListener('pointercancel', (e) => end(e, true));
+  canvas.addEventListener('wheel', (e) => {
+    if (mode !== 'build' || !e.ctrlKey) return; // a trackpad pinch zooms. A plain wheel keeps scrolling the page.
+    e.preventDefault();
+    scene.zoomBy(Math.exp(e.deltaY * 0.01));
+  }, { passive: false });
+}
+
+function syncViewButtons() {
+  const top = !!scene?.top;
+  $('#view-top').setAttribute('aria-pressed', String(top));
+  $('#view-3d').setAttribute('aria-pressed', String(!top));
+}
+$('#view-3d').addEventListener('click', () => { scene?.setTop(false); syncViewButtons(); });
+$('#view-top').addEventListener('click', () => { scene?.setTop(true); syncViewButtons(); track('top_view'); });
+$('#rot-l').addEventListener('click', () => { scene?.orbitBy(-70, 0); syncViewButtons(); });
+$('#rot-r').addEventListener('click', () => { scene?.orbitBy(70, 0); syncViewButtons(); });
+$('#zoom-in').addEventListener('click', () => scene?.zoomBy(0.85));
+$('#zoom-out').addEventListener('click', () => scene?.zoomBy(1 / 0.85));
+$('#view-reset').addEventListener('click', () => { scene?.resetView(); syncViewButtons(); });
+
+// --- Per frame: dimension lines, plus marks and the floating toolbar follow the room --------------
 const dimSvg = $('.p-dims');
-function drawDims() {
-  requestAnimationFrame(drawDims);
-  if (!scene || mode !== 'build' || !count(layout)) { dimSvg.innerHTML = ''; return; }
+const floating = () => scene && mode === 'build' && innerWidth > 640;
+function frame() {
+  requestAnimationFrame(frame);
+  const layout = layoutNow();
+  const live = scene && mode === 'build';
+  body.classList.toggle('sel-float', !!(floating() && sel));
+  const btns = handleBox.children;
+  for (let i = 0; i < btns.length; i++) {
+    const h = handleWorld[i];
+    if (!live || !h) { btns[i].style.opacity = '0'; continue; }
+    const s = scene.project(h.x, h.y, h.z);
+    btns[i].style.opacity = s.front ? '' : '0';
+    btns[i].style.transform = `translate(${Math.round(s.x)}px, ${Math.round(s.y)}px)`;
+  }
+  if (floating() && sel && !selBar.hidden) {
+    const p = placements(layout, { center: false }).find((q) => q.id === sel);
+    if (p) {
+      const f = footprint(p);
+      const s = scene.project((f.minX + f.maxX) / 2, 0.95, (f.minZ + f.maxZ) / 2);
+      const w = selBar.offsetWidth, h = selBar.offsetHeight;
+      const minX = Math.min(innerWidth - w - 12, 500);
+      const x = Math.max(minX, Math.min(innerWidth - w - 12, s.x - w / 2));
+      const y = Math.max(134, Math.min(innerHeight - h - 96, s.y - h - 24));
+      selBar.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
+    }
+  } else selBar.style.transform = '';
+  placeMenu();
+  if (!live || !count(layout) || scene.top) { dimSvg.innerHTML = ''; return; }
   const a = scene.dimAnchors();
   if (!a) { dimSvg.innerHTML = ''; return; }
   const d = dimensions(layout);
@@ -252,14 +554,13 @@ async function start3d() {
       tier, reducedMotion: reduced, onFallback: fallback,
       onReady: () => requestAnimationFrame(() => body.classList.add('gl-ready')),
       onAssembled: () => { body.dataset.room = 'assembled'; },
-      onGhost: (slot) => { if (armed) add(armed, slot); },
-      onPick: () => {},
     });
     if (!scene) return fallback();
     scene.setFabric(fabric);
     scene.showLayout(SHOWROOM, { drop: false });
     scene.assemble();
-    requestAnimationFrame(drawDims);
+    roomPointer($('#gl'));
+    requestAnimationFrame(frame);
     await scrollDrive();
   } catch {
     fallback();
@@ -284,8 +585,10 @@ async function scrollDrive() {
     if (inBuild !== (mode === 'build')) {
       mode = inBuild ? 'build' : 'showroom';
       body.dataset.mode = mode;
-      scene.showLayout(inBuild ? layout : SHOWROOM);
-      if (!inBuild) { armed = null; scene.setGhosts(layout, null); }
+      scene.showLayout(inBuild ? layoutNow() : SHOWROOM);
+      scene.select(inBuild ? sel : null);
+      if (!inBuild) { armed = null; scene.setGhosts(layoutNow(), null); closeMenu(); }
+      renderSel();
     }
     let view = 'hero';
     for (const k of ['plinth', 'fabric', 'evening']) if (st[k].isActive) view = k;

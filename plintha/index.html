@@ -69,21 +69,42 @@
   <section class="p-build" id="build" aria-labelledby="build-title">
     <div class="p-panel">
       <div class="p-panel-head">
-        <h2 id="build-title">Build your layout</h2>
+        <h2 id="build-title">Configure your sofa</h2>
+        <div class="p-hist" role="group" aria-label="History">
+          <button type="button" class="p-icon" id="undo" aria-label="Undo" title="Undo (Ctrl Z)" disabled><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7 5 3 9l4 4M3.5 9H12a5 5 0 0 1 0 10h-2"/></svg></button>
+          <button type="button" class="p-icon" id="redo" aria-label="Redo" title="Redo (Shift Ctrl Z)" disabled><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m13 5 4 4-4 4M16.5 9H8a5 5 0 0 0 0 10h2"/></svg></button>
+        </div>
+      </div>
+      <p class="p-how"><span class="p-how-wide">Click a module in the room to edit it. Drag it to reorder. The plus marks add a piece at an open end.</span><span class="p-how-narrow">Tap a module to edit it. Tap a plus mark to add a piece.</span></p>
+
+      <h3 class="p-sub">Start from</h3>
+      <div class="p-presets" id="presets" role="group" aria-label="Presets"></div>
+
+      <h3 class="p-sub">Add a module</h3>
+      <ul class="p-palette" id="palette" aria-label="Modules"></ul>
+
+      <fieldset class="p-fabrics">
+        <legend>Fabric</legend>
+        <div class="p-swatches" id="fabrics"></div>
+      </fieldset>
+      <div class="p-light-row"><span class="p-sub">Light</span>
         <div class="p-light" role="group" aria-label="Light">
           <button type="button" class="p-light-b" data-light="day" aria-pressed="true">Day</button>
           <button type="button" class="p-light-b" data-light="evening" aria-pressed="false">Evening</button>
         </div>
       </div>
-      <p class="p-how"><span class="p-how-wide">Drag a module into the room or click it to add.</span><span class="p-how-narrow">Tap a module to add it.</span> Arms and a chaise close a run. A corner starts a return.</p>
-      <ul class="p-palette" id="palette" aria-label="Modules"></ul>
-      <fieldset class="p-fabrics">
-        <legend>Fabric</legend>
-        <div class="p-swatches" id="fabrics"></div>
-      </fieldset>
+
       <div class="p-layout-head"><h3>Your layout</h3><span class="p-count" id="count">0 of 8 modules</span></div>
       <ol class="p-list" id="list" aria-label="Your layout"></ol>
+      <div class="p-ends" id="ends"></div>
       <div class="p-plan" id="plan"></div>
+
+      <div class="p-fit">
+        <label for="wall">Wall length</label>
+        <span class="p-fit-in"><input id="wall" type="number" inputmode="numeric" min="100" max="2000" step="5" placeholder="e.g. 420"><span>cm</span></span>
+        <p class="p-fit-out" id="fit" aria-live="polite">Enter your wall to check the fit.</p>
+      </div>
+
       <dl class="p-sum">
         <div><dt>Size</dt><dd data-testid="dims" id="dims">0 × 0 cm</dd></div>
         <div><dt>Total</dt><dd data-testid="total" id="total"></dd></div>
@@ -91,7 +112,6 @@
       </dl>
       <div class="p-actions">
         <button type="button" class="p-act" id="share">Copy share link</button>
-        <button type="button" class="p-act" id="showroom">Start from the showroom layout</button>
         <button type="button" class="p-act" id="clear">Clear</button>
       </div>
       <p class="p-status" id="status" role="status" aria-live="polite"></p>
@@ -125,6 +145,29 @@
   <button type="button" class="p-add" id="add" disabled>Add layout to cart</button>
   <button type="button" class="p-checkout" id="checkout">Checkout (0)</button>
 </div>
+<div class="p-tools" id="tools" role="group" aria-label="View">
+  <button type="button" class="p-tool" id="view-3d" aria-pressed="true">3D</button>
+  <button type="button" class="p-tool" id="view-top" aria-pressed="false">Top</button>
+  <span class="p-tool-sep" aria-hidden="true"></span>
+  <button type="button" class="p-tool p-icon" id="rot-l" aria-label="Turn left"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 8a7 7 0 0 1 13 2M4 3v5h5"/></svg></button>
+  <button type="button" class="p-tool p-icon" id="rot-r" aria-label="Turn right"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M16 8a7 7 0 0 0-13 2M16 3v5h-5"/></svg></button>
+  <button type="button" class="p-tool p-icon" id="zoom-in" aria-label="Zoom in"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 4v12M4 10h12"/></svg></button>
+  <button type="button" class="p-tool p-icon" id="zoom-out" aria-label="Zoom out"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h12"/></svg></button>
+  <button type="button" class="p-tool" id="view-reset">Reset</button>
+</div>
+<div class="p-handles" id="handles"></div>
+<div class="p-sel" id="sel" role="toolbar" aria-label="Selected module" hidden>
+  <p class="p-sel-name"><strong id="sel-name">Armless</strong><span id="sel-size"></span></p>
+  <div class="p-sel-btns">
+    <button type="button" class="p-sb" data-act="left"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M12 4 6 10l6 6"/></svg><span id="sel-left">Move left</span></button>
+    <button type="button" class="p-sb" data-act="right"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m8 4 6 6-6 6"/></svg><span id="sel-right">Move right</span></button>
+    <button type="button" class="p-sb" data-act="swap" aria-haspopup="menu"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 7h11l-3-3M16 13H5l3 3"/></svg><span>Swap</span></button>
+    <button type="button" class="p-sb" data-act="dup"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="6" width="9" height="9" rx="1.5"/><path d="M8 3h8a1 1 0 0 1 1 1v8"/></svg><span>Duplicate</span></button>
+    <button type="button" class="p-sb is-del" data-act="del"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 6h12M8 6V4h4v2M6 6l1 10h6l1-10"/></svg><span>Delete</span></button>
+    <button type="button" class="p-sb p-sel-x" data-act="close" aria-label="Deselect"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m5 5 10 10M15 5 5 15"/></svg></button>
+  </div>
+</div>
+<div class="p-menu" id="menu" role="menu" aria-label="Modules" hidden></div>
 <div id="panel-root"></div>
 
 <footer class="concept-foot">Concept by JLB USA. Fictional brand. Products and prices are demo data. <a href="https://jlbusa.com/">jlbusa.com</a></footer>

@@ -27,6 +27,7 @@ function validReturn(run) {
 
 export function place(layout, module, slot) {
   if (!layout || !(module in WIDTH) || count(layout) >= MAX_MODULES) return null;
+  if (module === 'chaise' && [...layout.main, ...layout.ret].includes('chaise')) return null;
   if (module === 'ottoman') return slot === 'free' ? { ...layout, ottomans: layout.ottomans + 1 } : null;
   if (slot === 'start' || slot === 'end') {
     if (slot === 'end' && layout.main.includes('corner')) return null;

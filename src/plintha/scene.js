@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { createStage } from '../kit/stage.js';
-import { placements, bounds, ghostSlots } from './positions.js';
+import { placements, bounds, ghostSlots, footprint } from './positions.js';
 import { WIDTH, DEPTH } from './layout.js';
 
 const TEX = '/plintha/tex/';
@@ -61,7 +61,13 @@ export async function createPlinthaScene(canvas, { tier, reducedMotion, onReady,
     upholstery.color.copy(c);
     upholstery.needsUpdate = true;
     void sheen;
+    // the selected module wears the same fabric with a faint moss glow
+    selMat.copy(upholstery);
+    selMat.emissive.set(0x6f8a45);
+    selMat.emissiveIntensity = 0.3;
+    selMat.needsUpdate = true;
   }
+  const selMat = new THREE.MeshStandardMaterial();
   const oak = new THREE.MeshStandardMaterial({ color: 0x2a1d15, roughness: 0.48 });
   const travertine = new THREE.MeshStandardMaterial({ map: tex('Travertine009_Color', true, 1.9), normalMap: tex('Travertine009_NormalGL', false, 1.9),
     roughnessMap: tex('Travertine009_Roughness', false, 1.9), color: 0xfffaf2, roughness: 0.6 });
@@ -92,7 +98,7 @@ export async function createPlinthaScene(canvas, { tier, reducedMotion, onReady,
   scene.add(room);
   // Loose pieces get a holder so the page can move them while their stored transform stays intact.
   const holder = (name) => { const n = room.getObjectByName(name); const g = new THREE.Group(); room.add(g); if (n) g.add(n); return g; };
-  const walls = holder('walls'), rug = holder('rug'), sideTable = holder('side_table'), lamp = holder('floor_lamp');
+  const walls = holder('walls'); const wallBox = new THREE.Box3().setFromObject(walls); const rug = holder('rug'); const sideTable = holder('side_table'), lamp = holder('floor_lamp');
   room.getObjectByName('floor').castShadow = false;
   const proto = Object.fromEntries(Object.keys(WIDTH).map((k) => [k, modG.scene.getObjectByName(k)]));
 
@@ -190,14 +196,41 @@ export async function createPlinthaScene(canvas, { tier, reducedMotion, onReady,
     }
   }
 
+  // --- Selection marker and drag snap -----------------------------------------------------
+  const markFill = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ color: 0x5f7a3c, transparent: true, opacity: 0.38, depthWrite: false }));
+  markFill.rotation.x = -Math.PI / 2;
+  const markEdge = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-0.5, 0, -0.5), new THREE.Vector3(0.5, 0, -0.5), new THREE.Vector3(0.5, 0, 0.5), new THREE.Vector3(-0.5, 0, 0.5)]),
+    new THREE.LineBasicMaterial({ color: 0x4f5b3a }));
+  const boxGeo = new THREE.BoxGeometry(1, 1, 1);
+  boxGeo.translate(0, 0.5, 0);
+  const markBox = new THREE.LineSegments(new THREE.EdgesGeometry(boxGeo), new THREE.LineBasicMaterial({ color: 0x55703a, transparent: true, opacity: 0.9 }));
+  markBox.scale.set(1, 0.84, 1);
+  const mark = new THREE.Group();
+  mark.add(markFill, markEdge, markBox);
+  mark.visible = false;
+  scene.add(mark);
+  const snapGeo = new THREE.BoxGeometry(1, 1, 1);
+  snapGeo.translate(0, 0.5, 0);
+  const snap = new THREE.Mesh(snapGeo, new THREE.MeshBasicMaterial({ color: 0x4f5b3a, transparent: true, opacity: 0.18, depthWrite: false }));
+  snap.add(new THREE.LineSegments(new THREE.EdgesGeometry(snapGeo), new THREE.LineBasicMaterial({ color: 0x4f5b3a })));
+  snap.visible = false;
+  scene.add(snap);
+  const fitRect = (obj, f, y, h) => {
+    obj.position.set((f.minX + f.maxX) / 2, y, (f.minZ + f.maxZ) / 2);
+    obj.scale.set(f.maxX - f.minX, h, f.maxZ - f.minZ);
+  };
+  let selected = null, dragging = null; // dragging = { id, x, z }
+
   // --- Camera ---------------------------------------------------------------------------
   const VIEW = {
     hero: { dir: [-0.5, 0.36, 1], pad: 1.6, lift: 0.05 },
     plinth: { dir: [-0.2, 0.08, 1], pad: 0.55, lift: -0.1, aim: 'left' },
     fabric: { dir: [0.15, 0.35, 1], pad: 0.42, lift: 0.05, aim: 'seat' },
     evening: { dir: [0.38, 0.36, 1], pad: 1.2, lift: 0 },
-    build: { dir: [-0.1, 0.9, 0.85], pad: 1.25, lift: 0 },
+    build: { dir: [-0.62, 0.78, 1], pad: 1.18, lift: 0 },
   };
+  // Builder camera: the visitor orbits within limits and zooms. Top view looks straight down like the plan.
+  const orbit = { yaw: 0, pitch: 0, zoom: 1, top: false, topK: 0 };
   let view = 'hero', frameTarget = null;
   function fit(ps) {
     const b = bounds(ps.length ? ps : [{ kind: 'armless', x: 0, z: 0, rot: 0 }]);
@@ -208,19 +241,33 @@ export async function createPlinthaScene(canvas, { tier, reducedMotion, onReady,
     const v = VIEW[view];
     const aspect = canvas.clientWidth / Math.max(1, canvas.clientHeight);
     const vfov = THREE.MathUtils.degToRad(camera.fov);
-    const span = Math.max(f.w / Math.min(aspect, 1.9), f.d * 1.1);
+    const span = view === 'build' ? Math.max(Math.hypot(f.w, f.d) * 0.95 / Math.min(aspect, 1.9), f.d * 1.1)
+      : Math.max(f.w / Math.min(aspect, 1.9), f.d * 1.1);
     let dist = (span / 2) / Math.tan(vfov / 2) * v.pad + 0.8;
     let look = new THREE.Vector3(f.cx, 0.35 + v.lift, f.cz);
     if (v.aim === 'left') { look.set(f.minX + 0.4, 0.12, f.cz + 0.45); dist = 1.6; }
     if (v.aim === 'seat') { look.set(f.cx - 0.2, 0.42, Math.min(f.cz, 0.7)); dist = 1.25; }
     const dir = new THREE.Vector3(...v.dir).normalize();
+    if (view === 'build') {
+      const sph = new THREE.Spherical().setFromVector3(dir);
+      sph.theta += orbit.yaw;
+      sph.phi = clamp(sph.phi - orbit.pitch, 0.18, 1.32);
+      // blend toward a straight-down view for the plan
+      sph.phi += (0.0005 - sph.phi) * orbit.topK;
+      sph.theta += (0 - sph.theta) * orbit.topK;
+      dir.setFromSpherical(sph);
+      const topSpan = Math.max(f.w / Math.min(aspect, 1.6), f.d * 1.25);
+      const topDist = (topSpan / 2) / Math.tan(vfov / 2) * 1.5 + 0.5;
+      dist = (dist + (topDist - dist) * orbit.topK) * orbit.zoom;
+      look.y = 0.35 * (1 - orbit.topK);
+    }
     return [look.clone().addScaledVector(dir, dist), look];
   }
   const narrow = () => canvas.clientWidth < 700;
   function frameView() {
     const w = canvas.clientWidth, h = canvas.clientHeight;
     // wide screens keep the copy on the left; phones keep the sofa in the upper part of the screen
-    if (w > 900) camera.setViewOffset(w, h, -w * 0.16, 0, w, h); else camera.setViewOffset(w, h, 0, h * (view === 'build' ? 0.3 : 0.2), w, h);
+    if (w > 900) camera.setViewOffset(w, h, -w * 0.16, 0, w, h); else camera.setViewOffset(w, h, 0, h * (view === 'build' ? 0.24 : 0.2), w, h);
     camera.updateProjectionMatrix();
   }
   window.addEventListener('resize', frameView);
@@ -236,20 +283,18 @@ export async function createPlinthaScene(canvas, { tier, reducedMotion, onReady,
   }
   const slotAt = (x, y) => { let o = hit(x, y, ghosts.children)?.object; while (o && !o.userData.slot) o = o.parent; return o?.userData.slot || null; };
   const pieceAt = (x, y) => { let o = hit(x, y, pieces.filter((p) => p.alive).map((p) => p.g))?.object; while (o && !o.userData.id) o = o.parent; return o?.userData.id || null; };
-  let downAt = null;
-  canvas.addEventListener('pointerdown', (e) => { downAt = [e.clientX, e.clientY]; });
-  canvas.addEventListener('pointerup', (e) => {
-    if (!downAt || Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 6) return;
-    const s = slotAt(e.clientX, e.clientY);
-    if (s) return onGhost?.(s);
-    onPick?.(pieceAt(e.clientX, e.clientY));
-  });
+  const floor = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), floorHit = new THREE.Vector3();
+  function floorAt(clientX, clientY) {
+    const r = canvas.getBoundingClientRect();
+    ndc.set(((clientX - r.left) / r.width) * 2 - 1, -((clientY - r.top) / r.height) * 2 + 1);
+    ray.setFromCamera(ndc, camera);
+    return ray.ray.intersectPlane(floor, floorHit) ? { x: floorHit.x, z: floorHit.z } : null;
+  }
+  void onPick; void onGhost;
 
   // --- Assembly -------------------------------------------------------------------------
   let assembleAt = reducedMotion ? -1 : null;
   const assembleK = (now) => (assembleAt === -1 ? 1 : assembleAt === null ? 0 : clamp((now - assembleAt) / 2.6));
-  let selected = null;
-
   stage.onFrame((dt, now) => {
     const sm = (rate) => Math.min(1, dt * (reducedMotion ? 60 : rate));
     const ak = assembleK(now);
@@ -270,12 +315,13 @@ export async function createPlinthaScene(canvas, { tier, reducedMotion, onReady,
         if (k >= 1 && p.g.parent) scene.remove(p.g);
         continue;
       }
-      const t = p.target;
+      const t = dragging && dragging.id === p.id ? { x: dragging.x, z: dragging.z, rot: p.target.rot } : p.target;
+      const lift = p.id === selected ? (dragging && dragging.id === p.id ? 0.12 : 0.025) : 0;
       const order = Math.max(0, pieces.indexOf(p));
       const gate = assembleAt === null ? 0 : clamp(ak * 2 - 0.6 - order * 0.04);
       p.g.position.x += (t.x - p.g.position.x) * sm(8);
       p.g.position.z += (t.z - p.g.position.z) * sm(8);
-      const yT = gate >= 1 || assembleAt === -1 ? 0 : 0.9 * (1 - ease(gate));
+      const yT = (gate >= 1 || assembleAt === -1 ? 0 : 0.9 * (1 - ease(gate))) + lift;
       p.g.position.y += (yT - p.g.position.y) * sm(9);
       p.g.rotation.y += (t.rot - p.g.rotation.y) * sm(8);
     }
@@ -284,6 +330,17 @@ export async function createPlinthaScene(canvas, { tier, reducedMotion, onReady,
       gh.material.opacity = (on ? 0.38 : 0.12) + Math.sin(now * 3) * 0.04;
     });
 
+    orbit.topK += ((orbit.top ? 1 : 0) - orbit.topK) * sm(4);
+    const sp = pieces.find((p) => p.alive && p.id === selected);
+    mark.visible = !!sp && view === 'build';
+    if (sp) {
+      const f = footprint({ kind: sp.kind, x: sp.g.position.x, z: sp.g.position.z, rot: sp.target.rot });
+      mark.position.set((f.minX + f.maxX) / 2, 0.006, (f.minZ + f.maxZ) / 2);
+      mark.scale.set(f.maxX - f.minX + 0.08, 1, f.maxZ - f.minZ + 0.08);
+      markBox.scale.y = sp.kind === 'ottoman' ? 0.48 : 0.84;
+    }
+    // hide the walls when the camera swings outside the room
+    walls.visible = !(camera.position.z < wallBox.min.z + 0.2 || camera.position.x < wallBox.min.x + 0.2 || orbit.topK > 0.5);
     light += (lightT - light) * sm(2.5);
     const day = 1 - light;
     sun.intensity = 4.2 * day;
@@ -319,7 +376,25 @@ export async function createPlinthaScene(canvas, { tier, reducedMotion, onReady,
     setLight(v) { lightT = clamp(v); },
     select(id) {
       selected = id;
-      for (const p of pieces) p.g.traverse((o) => { if (o.isMesh && o.material === upholstery && p.id === id) o.material = upholstery; });
+      for (const p of pieces) p.g.traverse((o) => { if (o.isMesh && (o.material === upholstery || o.material === selMat)) o.material = p.alive && p.id === id ? selMat : upholstery; });
+    },
+    pieceAt,
+    slotAt,
+    floorAt,
+    // a world point on screen, in CSS pixels
+    project(x, y, z) {
+      const v = new THREE.Vector3(x, y, z).project(camera);
+      return { x: (v.x + 1) / 2 * canvas.clientWidth, y: (1 - v.y) / 2 * canvas.clientHeight, front: v.z < 1 };
+    },
+    orbitBy(dx, dy) { orbit.yaw = clamp(orbit.yaw - dx * 0.006, -1.15, 1.6); orbit.pitch = clamp(orbit.pitch + dy * 0.004, -0.5, 0.75); if (orbit.top && Math.abs(dx) + Math.abs(dy) > 2) orbit.top = false; },
+    zoomBy(f) { orbit.zoom = clamp(orbit.zoom * f, 0.55, 1.6); },
+    setTop(on) { orbit.top = !!on; },
+    get top() { return orbit.top; },
+    resetView() { Object.assign(orbit, { yaw: 0, pitch: 0, zoom: 1, top: false }); },
+    drag(id, at) { dragging = id && at ? { id, x: at.x, z: at.z } : null; },
+    setSnap(p) {
+      snap.visible = !!p;
+      if (p) fitRect(snap, footprint(p), 0.004, 0.5);
     },
     assemble() {
       if (assembleAt === -1) { onAssembled?.(); return; }

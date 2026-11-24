@@ -21,4 +21,12 @@ describe('PLINTHA floor plan', () => {
   it('shows an empty plan with a prompt', () => {
     expect(planSvg([], { widthCm: 0, depthCm: 0 })).toContain('Add a module');
   });
+  it('draws the wall with the clearance at each side', () => {
+    const l = build([['arm_left', 'end'], ['armless', 'end'], ['arm_right', 'end']]);
+    const svg = planSvg(placements(l), dimensions(l), { wallCm: 400 });
+    expect(svg).toContain('class="wall');
+    expect(svg).toContain('>50 cm<');
+    expect(svg).toContain('>Wall 400 cm<');
+    expect(planSvg(placements(l), dimensions(l), { wallCm: 320 })).toContain('class="wall is-tight');
+  });
 });
