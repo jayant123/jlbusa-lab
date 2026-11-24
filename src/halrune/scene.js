@@ -131,10 +131,12 @@ export async function createHalruneScene(canvas, { tier, reducedMotion, onReady,
         case 'cone': m = new THREE.MeshStandardMaterial({ color: 0x1d1d1e, roughness: 0.85 }); break;
         case 'surround': m = new THREE.MeshStandardMaterial({ color: 0x080808, roughness: 0.6 }); break;
         case 'dome': m = new THREE.MeshStandardMaterial({ color: 0xd8d2c6, roughness: 0.65 }); break;
-        case 'ceramic': case 'bud': m = new THREE.MeshPhysicalMaterial({ roughness: 0.34, clearcoat: 1, clearcoatRoughness: 0.04, sheen: 0.25, sheenRoughness: 0.5, sheenColor: new THREE.Color(0xffffff) }); break;
+        case 'ceramic': m = new THREE.MeshPhysicalMaterial({ roughness: 0.42, clearcoat: 0.5, clearcoatRoughness: 0.28, sheen: 0.3, sheenRoughness: 0.5, sheenColor: new THREE.Color(0xffffff) }); break;
+        case 'bud': m = new THREE.MeshPhysicalMaterial({ roughness: 0.3, clearcoat: 0.7, clearcoatRoughness: 0.1 }); break;
         case 'seam': m = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.6 }); break;
         case 'led': m = new THREE.MeshBasicMaterial({ color: 0x5cff9a, toneMapped: false }); break;
-        case 'tip': m = new THREE.MeshStandardMaterial({ color: 0x6d6b68, roughness: 0.85 }); break;
+        case 'tip': m = new THREE.MeshStandardMaterial({ color: 0x2a2a2c, roughness: 0.75 }); break;
+        case 'mark': m = new THREE.MeshStandardMaterial({ color: 0x8f8a82, roughness: 0.6 }); break;
         default: m = new THREE.MeshStandardMaterial({ color: 0x777777 });
       }
       mats[name] = m;

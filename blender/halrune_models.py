@@ -157,6 +157,7 @@ def mats():
         'tip': M('tip', (0.55, 0.54, 0.52), roughness=0.8),
         'seam': M('seam', (0.05, 0.05, 0.05), roughness=0.6),
         'led': M('led', (0.2, 0.9, 0.5), roughness=0.3, emission=((0.3, 1.0, 0.55), 6)),
+        'mark': M('mark', (0.62, 0.6, 0.56), roughness=0.6),
     }
 
 
@@ -367,95 +368,153 @@ def speaker(lod='high', m=None):
 
 
 # --- HALRUNE Buds ------------------------------------------------------------------------------------------------
-CASE_A, CASE_B, CASE_C, CASE_SPLIT = 0.032, 0.022, 0.016, 0.009
-HINGE = (0, CASE_B * 0.92, CASE_SPLIT)
+# The case: a flat rounded rectangle in plan (a superellipse) with softly rounded top and bottom edges.
+CASE_A, CASE_B, CASE_H, CASE_SPLIT = 0.032, 0.0225, 0.033, 0.0195
+WALL = 0.0016
+HINGE = (0, CASE_B - 0.0012, CASE_SPLIT)
+SUPER = 4.0  # plan exponent: 2 is an ellipse, higher is squarer
 
 
-def pebble(name, a, b, c, z0, mat, lod, keep):
-    bpy.ops.mesh.primitive_uv_sphere_add(segments=LOD[lod]['seg'], ring_count=LOD[lod]['cseg'], radius=1, location=(0, 0, 0))
-    o = bpy.context.object
-    o.name = name
+def plan_pt(theta, a, b):
+    c, s = math.cos(theta), math.sin(theta)
+    e = 2 / SUPER
+    return (a * math.copysign(abs(c) ** e, c), b * math.copysign(abs(s) ** e, s))
+
+
+def side_scale(z, h, rnd=0.0055):
+    """1 on the straight sides, curving in over the last few mm at the top and bottom."""
+    d = min(z, h - z)
+    if d >= rnd:
+        return 1.0
+    t = 1 - d / rnd
+    return math.sqrt(max(0.0, 1 - t * t)) * 0.38 + 0.62 if d > 0 else 0.62
+
+
+def shell(name, z0, z1, h, mat, lod, inset=0.0, cap_bottom=True, cap_top=True):
+    """One half of the case: an outer skin between heights z0 and z1, closed with a flat floor or roof."""
+    seg = 96 if lod == 'high' else 56
+    rows = 18 if lod == 'high' else 10
     bm = bmesh.new()
-    bm.from_mesh(o.data)
-    for v in bm.verts:
-        x, y, z = v.co
-        # a superellipsoid-ish pebble: flatter top and bottom
-        k = 1 + 0.18 * (1 - abs(z)) ** 2
-        v.co = Vector((x * a * k, y * b * k, z * c + c))
-    if keep is None:
-        pass
-    elif keep == 'base':
-        bmesh.ops.delete(bm, geom=[v for v in bm.verts if v.co.z > z0], context='VERTS')
-    elif keep == 'lid':
-        bmesh.ops.delete(bm, geom=[v for v in bm.verts if v.co.z < z0], context='VERTS')
-    bm.to_mesh(o.data)
-    bm.free()
-    o.data.materials.append(mat)
-    bpy.ops.object.shade_smooth()
+    ring = []
+    zs = [z0 + (z1 - z0) * (i / rows) for i in range(rows + 1)]
+    for z in zs:
+        k = side_scale(z, h)
+        ring.append([bm.verts.new((*[c * k for c in plan_pt(2 * math.pi * j / seg, CASE_A - inset, CASE_B - inset)], z)) for j in range(seg)])
+    for i in range(rows):
+        for j in range(seg):
+            bm.faces.new((ring[i][j], ring[i][(j + 1) % seg], ring[i + 1][(j + 1) % seg], ring[i + 1][j]))
+    caps = []
+    if cap_bottom:
+        caps.append(bm.faces.new(list(reversed(ring[0]))))
+    if cap_top:
+        caps.append(bm.faces.new(ring[-1]))
+    # Fan the flat caps from their centers so later cuts (the deboss) stay clean.
+    if caps:
+        bmesh.ops.poke(bm, faces=caps)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    o = C.obj_from_bmesh(name, bm, mat)
+    sol = o.modifiers.new('Shell', 'SOLIDIFY')
+    sol.thickness = WALL
+    sol.offset = -1
     return o
+
+
+def bud(side, s, m, lod):
+    """One earbud: a rounded head, a tapered stem with a steel tip, an angled nozzle and a silicone ear tip."""
+    seg = 48 if lod == 'high' else 28
+    x, parts = s * 0.0135, []
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=seg, ring_count=seg // 2, radius=0.0074, location=(x, 0.0005, 0.0215))
+    head = bpy.context.object
+    head.scale = (1, 0.9, 0.82)
+    head.data.materials.append(m['bud'])
+    bpy.ops.object.shade_smooth()
+    # Stem: a lathe that narrows toward a rounded foot.
+    stem = spin_profile(f'stem_{side}', [(0.0, 0.0045), (0.0019, 0.0047), (0.0026, 0.0056), (0.0028, 0.0085), (0.0033, 0.0185), (0.0, 0.0185)], seg, m['bud'])
+    stem.location = (x, 0.0012, 0)
+    subsurf(stem, 1)
+    # Steel contact at the foot of the stem.
+    ring_ = spin_profile(f'contact_{side}', [(0.0, 0.0044), (0.0019, 0.0044), (0.00205, 0.0050), (0.0, 0.0050)], seg, m['steel'])
+    ring_.location = (x, 0.0012, 0)
+    # Nozzle angled down and forward, then the ear tip on its end.
+    bpy.ops.mesh.primitive_cylinder_add(vertices=seg, radius=0.0027, depth=0.0075, location=(x - s * 0.002, -0.0058, 0.0242), rotation=(math.radians(68), math.radians(-s * 14), 0))
+    nz = bpy.context.object
+    nz.data.materials.append(m['bud'])
+    C.bevel(nz, 0.0009, 4)
+    bpy.ops.object.shade_smooth()
+    tip = spin_profile(f'tipprof_{side}', [(0.0, -0.0035), (0.0028, -0.0033), (0.0043, -0.0021), (0.0047, -0.0002), (0.0038, 0.0012), (0.0026, 0.0014), (0.0, 0.0014)], seg, m['tip'])
+    tip.location = (x - s * 0.0031, -0.0101, 0.0262)
+    tip.rotation_euler = (math.radians(68 + 90), math.radians(-s * 14), 0)
+    subsurf(tip, 1)
+    # A touch panel on the outer face of the head.
+    bpy.ops.mesh.primitive_cylinder_add(vertices=seg, radius=0.0036, depth=0.0005, location=(x + s * 0.0001, 0.0042, 0.0236), rotation=(math.radians(-70), 0, 0))
+    pad = bpy.context.object
+    pad.data.materials.append(m['steel'])
+    C.bevel(pad, 0.0002, 2)
+    for o in (stem, ring_, nz, tip, pad):
+        parts.append(o)
+    head.name = f'bud_{side}'
+    return [head] + parts
 
 
 def buds(lod='high', m=None):
     m = m or mats()
     out = {}
-    base = pebble('case_base', CASE_A, CASE_B, CASE_C, CASE_SPLIT, m['ceramic'], lod, 'base')
-    sol = base.modifiers.new('Shell', 'SOLIDIFY')
-    sol.thickness = 0.0016
+    base = shell('case_base', 0.0, CASE_SPLIT, CASE_H, m['ceramic'], lod, cap_top=False)
     out['case_base'] = base
-    lid = pebble('case_lid', CASE_A, CASE_B, CASE_C, CASE_SPLIT + 0.0004, m['ceramic'], lod, 'lid')
-    sol = lid.modifiers.new('Shell', 'SOLIDIFY')
-    sol.thickness = 0.0016
-    # Pivot the lid at its hinge so the page can open it.
-    lid.data.transform(__import__('mathutils').Matrix.Translation(Vector(HINGE) * -1))
+    # The lid sits a hair inside the base line, which leaves a fine step at the seam.
+    lid = shell('case_lid', CASE_SPLIT + 0.0003, CASE_H, CASE_H, m['ceramic'], lod, inset=0.00035, cap_bottom=False)
+    # Debossed mark: cut 0.25 mm into the lid top. The cut faces take a slightly darker glaze.
+    bpy.ops.object.select_all(action='DESELECT'); lid.select_set(True); bpy.context.view_layer.objects.active = lid
+    bpy.ops.object.modifier_apply(modifier='Shell')
+    font = os.path.join(os.path.dirname(__file__), 'fonts', 'Archivo-Expanded-Medium.ttf')
+    mark = C.text_mesh('mark', 'HALRUNE', font, 0.0036, CASE_H, m['mark'], extrude=0.00025, letter_spacing=1.25)
+    lid.data.materials.append(m['mark'])
+    bo = lid.modifiers.new('Deboss', 'BOOLEAN'); bo.operation = 'DIFFERENCE'; bo.solver = 'EXACT'; bo.object = mark
+    try:
+        bo.material_mode = 'TRANSFER'
+    except Exception:  # noqa: BLE001
+        pass
+    bpy.ops.object.select_all(action='DESELECT'); lid.select_set(True); bpy.context.view_layer.objects.active = lid
+    bpy.ops.object.modifier_apply(modifier=bo.name)
+    bpy.data.objects.remove(mark)
+    # Pivot the lid at the hinge so the page can open it.
+    from mathutils import Matrix
+    lid.data.transform(Matrix.Translation(Vector(lid.location) - Vector(HINGE)))
     lid.location = HINGE
+    wnormal(lid)
     out['case_lid'] = lid
-    # Each bud: a rounded body that sits in its well, a short angled nozzle and a soft tip. A small steel
-    # contact on the back and a flat touch panel on the outer face.
-    for side, s in (('l', -1), ('r', 1)):
-        bud = pebble(f'bud_{side}', 0.0085, 0.0078, 0.0068, None, m['bud'], lod, None)
-        bud.location = (s * 0.0125, 0.001, 0.0035)
-        out[bud.name] = bud
-        bpy.ops.mesh.primitive_cylinder_add(vertices=32, radius=0.0035, depth=0.007, location=(s * 0.0125, -0.0075, 0.0135), rotation=(math.radians(62), 0, 0))
-        nz = bpy.context.object
-        nz.name = f'nozzle_{side}'
-        nz.data.materials.append(m['bud'])
-        C.bevel(nz, 0.0012, 4)
-        bpy.ops.object.shade_smooth()
-        out[nz.name] = nz
-        bpy.ops.mesh.primitive_uv_sphere_add(segments=32, ring_count=16, radius=0.0048, location=(s * 0.0125, -0.0108, 0.0157))
-        t = bpy.context.object
-        t.name = f'tip_{side}'
-        t.scale = (1, 0.75, 1)
-        t.data.materials.append(m['tip'])
-        bpy.ops.object.shade_smooth()
-        out[t.name] = t
-        bpy.ops.mesh.primitive_cylinder_add(vertices=32, radius=0.0042, depth=0.0006, location=(s * 0.0125, 0.0035, 0.0172))
-        pnl = bpy.context.object
-        pnl.name = f'panel_{side}'
-        pnl.data.materials.append(m['steel'])
-        out[pnl.name] = pnl
-    # The seam where lid meets base: a fine dark line around the case.
-    zn = (CASE_SPLIT - CASE_C) / CASE_C
-    ring = math.sqrt(1 - zn * zn) * (1 + 0.18 * (1 - abs(zn)) ** 2)
-    pts = [(math.cos(t) * CASE_A * ring * 1.002, math.sin(t) * CASE_B * ring * 1.002, CASE_SPLIT) for t in [i * 2 * math.pi / 96 for i in range(97)]]
-    out['seam'] = curve_tube('seam', pts, 0.00035, m['seam'], res=2, bezier=False)
-    # A status light on the front of the base, just under the seam.
-    zl = 0.0062
-    zn2 = (zl - CASE_C) / CASE_C
-    ry = CASE_B * math.sqrt(1 - zn2 * zn2) * (1 + 0.18 * (1 - abs(zn2)) ** 2)
-    bpy.ops.mesh.primitive_uv_sphere_add(segments=24, ring_count=12, radius=0.0009, location=(0, -ry + 0.0002, zl))
+    # The seam: a thin dark groove where lid meets base.
+    k = side_scale(CASE_SPLIT, CASE_H)
+    pts = [(*[c * k * 1.0005 for c in plan_pt(2 * math.pi * j / 128, CASE_A, CASE_B)], CASE_SPLIT + 0.00015) for j in range(129)]
+    out['seam'] = curve_tube('seam', pts, 0.00026, m['seam'], res=2, bezier=False)
+    # Hinge: three steel knuckles on the back across the seam.
+    for i, xx in enumerate((-0.0085, 0.0, 0.0085)):
+        bpy.ops.mesh.primitive_cylinder_add(vertices=32, radius=0.0013, depth=0.0055, location=(xx, CASE_B - 0.0002, CASE_SPLIT), rotation=(0, math.pi / 2, 0))
+        h = bpy.context.object
+        h.name = f'hinge_{i}'
+        h.data.materials.append(m['steel'])
+        C.bevel(h, 0.0004, 3)
+        out[f'hinge_{i}'] = h
+    # A small pill-shaped status light on the front, just under the seam.
+    bpy.ops.mesh.primitive_cube_add(size=1, location=(0, -CASE_B * side_scale(CASE_SPLIT - 0.004, CASE_H) - 0.0001, CASE_SPLIT - 0.004))
     led = bpy.context.object
     led.name = 'status_light'
-    led.scale = (1, 0.4, 1)
+    led.scale = (0.0042, 0.0008, 0.0013)
+    bpy.ops.object.transform_apply(scale=True)
     led.data.materials.append(m['led'])
-    bpy.ops.object.shade_smooth()
+    C.bevel(led, 0.00055, 4)
     out['status_light'] = led
-    # A short hinge bar on the back, visible across the seam.
-    bpy.ops.mesh.primitive_cylinder_add(vertices=24, radius=0.0012, depth=0.022, location=HINGE, rotation=(0, math.pi / 2, 0))
-    h = bpy.context.object
-    h.name = 'hinge'
-    h.data.materials.append(m['steel'])
-    out['hinge'] = h
+    # The buds, standing stem-down in their wells with heads and tips above the seam.
+    for side, s in (('l', -1), ('r', 1)):
+        parts = bud(side, s, m, lod)
+        head = parts[0]
+        for o in parts[1:]:
+            o.parent = head
+            o.matrix_parent_inverse = head.matrix_world.inverted()
+        head.location.z -= 0.0012  # sit a little lower so the tips clear the closed lid
+        out[head.name] = head
+        for o in parts[1:]:
+            out[o.name] = o
     return out
 
 

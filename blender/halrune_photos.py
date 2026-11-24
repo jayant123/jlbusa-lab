@@ -130,6 +130,21 @@ def grille(name):
     return m
 
 
+def glaze(name, color):
+    """Matte glazed ceramic: a satin base, a soft sheen and a faint speckle."""
+    m = bpy.data.materials.new(name)
+    n, l, b = nodes(m)
+    b.inputs['Base Color'].default_value = (*color, 1)
+    b.inputs['Roughness'].default_value = 0.42
+    b.inputs['Coat Weight'].default_value = 0.5
+    b.inputs['Coat Roughness'].default_value = 0.28
+    b.inputs['Sheen Weight'].default_value = 0.3
+    noise = n.new('ShaderNodeTexNoise'); noise.inputs['Scale'].default_value = 2600
+    bump = n.new('ShaderNodeBump'); bump.inputs['Strength'].default_value = 0.03
+    l.new(noise.outputs['Fac'], bump.inputs['Height']); l.new(bump.outputs['Normal'], b.inputs['Normal'])
+    return m
+
+
 def finish_mats(finish='Walnut', color='Stone'):
     M = C.material
     cer = CERAMIC.get(color, CERAMIC['Stone'])
@@ -148,9 +163,10 @@ def finish_mats(finish='Walnut', color='Stone'):
         'cone': leather('cone', (0.08, 0.08, 0.08), 0.85, 900, 0.15),
         'surround': M('surround', (0.02, 0.02, 0.02), roughness=0.55),
         'dome': M('dome', (0.8, 0.78, 0.72), roughness=0.6),
-        'ceramic': M('ceramic', cer, roughness=0.32, coat=1.0, coat_roughness=0.04),
+        'ceramic': glaze('ceramic', cer),
+        'mark': M('mark', tuple(c * 0.82 for c in cer), roughness=0.6),
         'bud': M('bud', cer, roughness=0.28, coat=0.7, coat_roughness=0.06),
-        'tip': M('tip', (0.42, 0.41, 0.4), roughness=0.85),
+        'tip': M('tip', (0.16, 0.16, 0.165), roughness=0.75),
         'seam': M('seam', (0.03, 0.03, 0.03), roughness=0.6),
         'led': M('led', (0.2, 0.9, 0.5), roughness=0.3, emission=((0.3, 1.0, 0.55), 8)),
     }
@@ -351,9 +367,9 @@ def main():
             place(objs, (0, 0, 0), math.radians(-24))
             camera((0.1, -0.9, 0.3), (0, 0, 0.15), 62)
         else:
-            objs['case_lid'].rotation_euler.x = math.radians(-100)
-            place(objs, (0, 0, 0), math.radians(-20), 3.0)
-            camera((0.05, -0.66, 0.32), (0, 0, 0.05), 70)
+            objs['case_lid'].rotation_euler.x = 0 if a.get('closed') else math.radians(-100)
+            place(objs, (0, 0, 0), math.radians(-22), 3.0)
+            camera((0.06, -0.62, 0.34), (0, 0, 0.055), 70)
         setup(int(a.get('w', 900)), int(a.get('h', 1125)), samples)
     elif mode == 'exploded':
         studio()
