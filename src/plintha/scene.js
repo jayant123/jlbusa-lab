@@ -260,16 +260,56 @@ export async function createPlinthaScene(canvas, { tier, reducedMotion, onReady,
       dir.setFromSpherical(sph);
       const topSpan = Math.max(f.w / Math.min(aspect, 1.6), f.d * 1.25);
       const topDist = (topSpan / 2) / Math.tan(vfov / 2) * 1.5 + 0.5;
-      dist = (dist + (topDist - dist) * orbit.topK) * orbit.zoom;
+      dist = dist + (topDist - dist) * orbit.topK;
       look.y = 0.35 * (1 - orbit.topK);
+      if (safe) dist = fitDistance(f, look, dir, dist);
+      dist *= orbit.zoom;
     }
     return [look.clone().addScaledVector(dir, dist), look];
+  }
+
+  // Phones and tablets: the page reports the free part of the screen (below the header and tools, above the panel
+  // or sheet). The builder camera fits the sofa's outline into it and centers it there.
+  let safe = null; // { top, bottom } in canvas pixels
+  const probe = new THREE.PerspectiveCamera();
+  const corners = [];
+  for (let i = 0; i < 8; i++) corners.push(new THREE.Vector3());
+  const offset = { y: 0, yT: 0, x: 0, xT: 0 };
+  function fitDistance(f, look, dir, d0) {
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+    const left = safe.left || 0;
+    const availH = Math.max(80, safe.bottom - safe.top), availW = w - left - 40;
+    probe.fov = camera.fov; probe.aspect = w / h; probe.near = camera.near; probe.far = camera.far;
+    probe.updateProjectionMatrix();
+    // The outline includes room for the dimension lines and their labels beside the sofa.
+    const hx = f.w / 2 + 0.3, hz = f.d / 2 + 0.3;
+    let d = d0, cx = 0, cy = 0;
+    for (let it = 0; it < 3; it++) {
+      probe.position.copy(look).addScaledVector(dir, d);
+      probe.lookAt(look);
+      probe.updateMatrixWorld();
+      let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9, k = 0;
+      for (const sx of [-1, 1]) for (const sz of [-1, 1]) for (const y of [0, 0.85]) {
+        const v = corners[k++].set(f.cx + sx * hx, y, f.cz + sz * hz).project(probe);
+        x0 = Math.min(x0, v.x); x1 = Math.max(x1, v.x); y0 = Math.min(y0, v.y); y1 = Math.max(y1, v.y);
+      }
+      // size of the outline in pixels against the room we have, with a margin
+      const need = Math.max(((x1 - x0) / 2 * w) / (availW * 0.94), ((y1 - y0) / 2 * h) / (availH * 0.9));
+      d *= need;
+      cx = (x0 + x1) / 2; cy = (y0 + y1) / 2;
+    }
+    // Move the picture so the outline's center sits in the middle of the free area.
+    offset.xT = cx * w / 2 - left / 2;
+    offset.yT = (h / 2 - (safe.top + safe.bottom) / 2) - cy * h / 2;
+    return d;
   }
   const narrow = () => canvas.clientWidth < 700;
   function frameView() {
     const w = canvas.clientWidth, h = canvas.clientHeight;
-    // wide screens keep the copy on the left; phones keep the sofa in the upper part of the screen
-    if (w > 900) camera.setViewOffset(w, h, -w * 0.16, 0, w, h); else camera.setViewOffset(w, h, 0, h * (view === 'build' ? 0.24 : 0.2), w, h);
+    // Wide screens keep the copy on the left. Narrow screens use the free area the page reports.
+    if (safe && view === 'build') camera.setViewOffset(w, h, offset.x, offset.y, w, h);
+    else if (w > 900) camera.setViewOffset(w, h, -w * 0.16, 0, w, h);
+    else camera.setViewOffset(w, h, 0, h * (view === 'build' ? 0.24 : 0.2), w, h);
     camera.updateProjectionMatrix();
   }
   window.addEventListener('resize', frameView);
@@ -369,6 +409,11 @@ export async function createPlinthaScene(canvas, { tier, reducedMotion, onReady,
       camera.position.copy(camPos);
       camera.lookAt(camLook);
     }
+    if (safe && view === 'build') {
+      const k = sm(2.6);
+      const nx = offset.x + (offset.xT - offset.x) * k, ny = offset.y + (offset.yT - offset.y) * k;
+      if (Math.abs(nx - offset.x) > 0.05 || Math.abs(ny - offset.y) > 0.05) { offset.x = nx; offset.y = ny; frameView(); }
+    }
   });
 
   try { await renderer.compileAsync(scene, camera); } catch { renderer.compile(scene, camera); }
@@ -380,6 +425,13 @@ export async function createPlinthaScene(canvas, { tier, reducedMotion, onReady,
     setGhosts(layout, kind) { setGhosts(layout, kind); },
     hoverAt(x, y) { hoverSlot = x == null ? null : slotAt(x, y); return hoverSlot; },
     setActive(on) { active = !!on; },
+    // Free part of the canvas on narrow screens, in pixels from the top. null hands framing back to the default.
+    setSafeArea(a) {
+      const was = !!safe;
+      safe = a ? { top: a.top, bottom: a.bottom, left: a.left || 0 } : null;
+      if (!safe && was) frameView();
+      if (safe && !was) { offset.x = offset.xT; offset.y = offset.yT; }
+    },
     setView(v) { if (VIEW[v] && v !== view) { view = v; frameView(); } },
     setLight(v) { lightT = clamp(v); },
     select(id) {

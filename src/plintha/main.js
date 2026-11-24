@@ -413,8 +413,9 @@ function render() {
 
 // --- Keyboard -------------------------------------------------------------------------------
 window.addEventListener('keydown', (e) => {
-  if (!buildVisible) return;
   const t = e.target;
+  // A key pressed on a control inside the configurator always counts. The visibility flag can lag behind a scroll.
+  if (!buildVisible && !t.closest?.('#build')) return;
   const typing = t.closest?.('input,textarea,select,[contenteditable]');
   const mod = e.metaKey || e.ctrlKey;
   if (mod && !typing && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); if (e.shiftKey) redo(); else undo(); return; }
@@ -576,8 +577,35 @@ $('#view-reset').addEventListener('click', () => { scene?.resetView(); syncViewB
 // --- Per frame: dimension lines, plus marks and the floating toolbar follow the room --------------
 const dimSvg = $('.p-dims');
 const floating = () => scene && mode === 'build' && innerWidth > 640;
+// Narrow screens: tell the camera which band of the screen is free of the header, tools, panel, sheets and bar.
+const shown = (el) => el && !el.hidden && getComputedStyle(el).display !== 'none' && getComputedStyle(el).visibility !== 'hidden';
+function safeArea() {
+  if (!scene || mode !== 'build') return null;
+  if (innerWidth > 900) {
+    // Wide screens: the panel sits on the left. The sofa fits the space to its right.
+    const pr = $('.p-panel').getBoundingClientRect();
+    const top = Math.max($('.p-top').getBoundingClientRect().bottom, shown($('#tools')) ? $('#tools').getBoundingClientRect().bottom : 0) + 10;
+    return { top, bottom: $('.p-bar').getBoundingClientRect().top - 10, left: Math.max(0, pr.right) + 10 };
+  }
+  let top = $('.p-top').getBoundingClientRect().bottom;
+  const tools = $('#tools');
+  if (shown(tools)) top = Math.max(top, tools.getBoundingClientRect().bottom);
+  let bottom = $('.p-bar').getBoundingClientRect().top;
+  for (const el of [$('.p-panel'), selBar, $('#menu')]) {
+    if (!shown(el)) continue;
+    const r = el.getBoundingClientRect();
+    if (r.height && r.top < bottom && r.bottom > top + 40) bottom = Math.min(bottom, r.top);
+  }
+  return { top: top + 10, bottom: Math.max(top + 120, bottom - 10) };
+}
+let lastSafe = '';
 function frame() {
   requestAnimationFrame(frame);
+  if (scene) {
+    const a = safeArea();
+    const key = a ? `${Math.round(a.top)}:${Math.round(a.bottom)}` : '';
+    if (key !== lastSafe) { lastSafe = key; scene.setSafeArea(a); }
+  }
   const layout = layoutNow();
   const live = scene && mode === 'build';
   body.classList.toggle('sel-float', !!(floating() && sel));

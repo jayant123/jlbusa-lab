@@ -1,7 +1,7 @@
 // WebGL stage shared by the concepts: renderer, camera, environment, GLB loading, adaptive resolution,
 // and a single 'fallback' event when 3D can't run (no renderer, lost context, failed load).
 import * as THREE from 'three';
-import { nextPixelRatio } from './tier.js';
+import { createDprGovernor } from './tier.js';
 
 const MAX_DPR = { low: 1, mid: 1.5, high: 2 };
 
@@ -37,7 +37,9 @@ export function createStage(canvas, { tier = 'mid', envUrl, createRenderer = def
   }
   canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault?.(); fallback(new Error('context lost')); });
 
-  let dpr = Math.max(Math.min(minDpr, window.devicePixelRatio || 1), Math.min(window.devicePixelRatio || 1, capDpr));
+  const device = window.devicePixelRatio || 1;
+  let dpr = Math.max(Math.min(minDpr, device), Math.min(device, capDpr));
+  const gov = createDprGovernor({ start: dpr, min: Math.min(minDpr, capDpr), max: capDpr, device });
   const resize = () => {
     if (!renderer) return;
     const w = canvas.clientWidth || window.innerWidth, h = canvas.clientHeight || window.innerHeight;
@@ -52,18 +54,20 @@ export function createStage(canvas, { tier = 'mid', envUrl, createRenderer = def
   const loop = (t) => {
     const dt = last ? t - last : 16.7;
     last = t;
+    listeners.frame.forEach((fn) => fn(dt / 1000, t / 1000));
+    const draw = !shouldRender || shouldRender();
+    if (!draw) { n = 0; acc = 0; return; } // idle frames cost nothing, so they say nothing about speed
+    renderer.render(scene, camera);
     acc += dt; n += 1;
     if (early && n === 6) { // quickStart: a device that can't draw the first frames in time starts at the floor
       early = false;
-      if (acc / n > 50) { dpr = Math.min(minDpr, capDpr); resize(); acc = 0; n = 0; }
+      if (acc / n > 50) { dpr = Math.min(minDpr, capDpr); gov.set(dpr); resize(); acc = 0; n = 0; }
     }
-    if (n === 30) { // adapt resolution every 30 frames
-      const next = nextPixelRatio(dpr, acc / n, { max: capDpr, min: Math.min(minDpr, capDpr) });
+    if (n === 30) { // judge resolution once per 30 drawn frames. The governor settles instead of hunting.
+      const next = gov.window(acc / n);
       if (next !== dpr) { dpr = next; resize(); }
       acc = 0; n = 0;
     }
-    listeners.frame.forEach((fn) => fn(dt / 1000, t / 1000));
-    if (!shouldRender || shouldRender()) renderer.render(scene, camera);
   };
 
   let gltfLoader = null;
