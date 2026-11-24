@@ -7,7 +7,7 @@ const seed = JSON.parse(readFileSync(resolve(process.cwd(), 'seed/vantrik.json')
 
 describe('VANTRIK parts and colors', () => {
   it('has five customizable parts', () => {
-    expect(PARTS.map((p) => p.id)).toEqual(['upper', 'midsole', 'outsole', 'laces', 'heel_tab']);
+    expect(PARTS.map((p) => p.id)).toEqual(['upper', 'midsole', 'outsole', 'laces', 'trim']);
   });
   it('defines every seed colorway for the two stock models with a palette color per part', () => {
     for (const [handle, m] of Object.entries(MODELS)) {
@@ -26,10 +26,10 @@ describe('VANTRIK parts and colors', () => {
 });
 
 describe('custom pair attributes', () => {
-  const ok = { upper: 'Ember', midsole: 'Bone', outsole: 'Night', laces: 'Bone', heel_tab: 'Night' };
+  const ok = { upper: 'Ember', midsole: 'Bone', outsole: 'Night', laces: 'Bone', trim: 'Night' };
   it('maps each part to a named line attribute in a fixed order', () => {
-    expect(customAttrs(ok)).toEqual({ Upper: 'Ember', Midsole: 'Bone', Outsole: 'Night', Laces: 'Bone', 'Heel tab': 'Night' });
-    expect(Object.keys(customAttrs({ heel_tab: 'Night', laces: 'Bone', outsole: 'Night', midsole: 'Bone', upper: 'Ember' }))).toEqual(['Upper', 'Midsole', 'Outsole', 'Laces', 'Heel tab']);
+    expect(customAttrs(ok)).toEqual({ Upper: 'Ember', Midsole: 'Bone', Outsole: 'Night', Laces: 'Bone', 'Trim': 'Night' });
+    expect(Object.keys(customAttrs({ trim: 'Night', laces: 'Bone', outsole: 'Night', midsole: 'Bone', upper: 'Ember' }))).toEqual(['Upper', 'Midsole', 'Outsole', 'Laces', 'Trim']);
   });
   it('refuses a missing part or a color not in the palette', () => {
     expect(customAttrs({ ...ok, laces: undefined })).toBeNull();

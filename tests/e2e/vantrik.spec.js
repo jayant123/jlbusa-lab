@@ -51,7 +51,7 @@ test.describe('VANTRIK', () => {
     await expect(page.getByRole('button', { name: /Checkout \(1\)/ })).toBeVisible();
     expect(shop.sent[0][0].attributes).toEqual([
       { key: 'Upper', value: 'Sky' }, { key: 'Midsole', value: 'Volt' }, { key: 'Outsole', value: 'Ember' },
-      { key: 'Laces', value: 'Night' }, { key: 'Heel tab', value: 'Ember' },
+      { key: 'Laces', value: 'Night' }, { key: 'Trim', value: 'Ember' },
     ]);
     await page.getByRole('button', { name: /Checkout \(1\)/ }).click();
     await expect(page.getByRole('dialog')).toContainText('Midsole: Volt');

@@ -4,7 +4,9 @@ blender -b -P blender/vantrik_shoes.py -- --kind runner|court --lod high|low --o
 
 Blender axes: x runs heel (0) to toe (L), y across the foot (lateral side is -y), z up. In three.js the toe points
 to +x, up is +y and the lateral side faces +z (toward the camera).
-Parts (object and material names): outsole, midsole, insole, upper, tongue, laces, eyelets, heel_tab, stitch.
+Parts (object names): outsole, midsole, insole, upper (with the padded collar), overlay (mudguard or toe cap),
+trim (heel counter, eyestays, side stripe, heel tab, tongue loop), tongue, label, laces, eyelets, stitch and perf
+(court toe-box holes).
 Every part is smooth: rounded profiles, dense rings, Catmull-Clark on the quad grids and smooth normals.
 """
 import math
@@ -114,7 +116,7 @@ def rounded_profile(zbot, ztop, r_bot, r_top, inset=lambda t: 0.0, bulge=lambda 
 def knit_normal(path, size=512):
     """A knitted look: rows of V-shaped stitches, as a tangent-space normal map."""
     y, x = np.mgrid[0:size, 0:size].astype(np.float32) / size
-    cols, rows = 24, 32
+    cols, rows = 12, 16
     u = (x * cols) % 1.0
     v = (y * rows + np.abs(u - 0.5) * 0.9) % 1.0
     h = np.sin(np.pi * v) ** 0.6 * (0.55 + 0.45 * np.sin(np.pi * u))
@@ -166,101 +168,204 @@ def subsurf(o, levels):
     return o
 
 
+
 # --- Shoe definitions ----------------------------------------------------------------------------------------------
+# Heights in meters. zb: the underside of the sole (toe spring and heel bevel). sole: outsole thickness. stack: foam
+# under the foot. bed: where the foot sits. wall: how far the sole rises past the bed up the side of the upper.
 KINDS = {
     'runner': dict(
-        zb=lambda t: 0.014 * sm(0.7, 1.0, t) ** 1.5 + 0.005 * sm(0.07, 0.0, t),
-        outsole=0.0035,
-        stack=lambda t: 0.033 - 0.011 * sm(0.22, 0.78, t),
-        flare=lambda t: 0.0035 * sm(0.3, 0.0, t) + 0.0015,
-        upper_h=lambda t: 0.064 + 0.008 * sm(0.1, 0.0, t) + 0.012 * sm(0.3, 0.5, t) - 0.05 * sm(0.5, 0.9, t) - 0.02 * sm(0.9, 1.0, t),
-        knit=True, mid_r=0.006,
+        zb=lambda t: 0.016 * sm(0.6, 1.0, t) ** 1.6 + 0.007 * sm(0.07, 0.0, t) ** 1.4,
+        sole=0.004,
+        stack=lambda t: 0.034 - 0.012 * sm(0.22, 0.8, t),
+        wall=lambda t: 0.003 + 0.006 * sm(0.3, 0.05, t),
+        flare=lambda t: 0.004 * sm(0.32, 0.0, t) + 0.0012,
+        upper_h=lambda t: 0.064 + 0.009 * sm(0.1, 0.0, t) + 0.012 * sm(0.3, 0.5, t) - 0.05 * sm(0.5, 0.9, t) - 0.021 * sm(0.9, 1.0, t),
+        holes=7,
     ),
     'court': dict(
-        zb=lambda t: 0.006 * sm(0.8, 1.0, t) ** 2,
-        outsole=0.003,
-        stack=lambda t: 0.026,
+        zb=lambda t: 0.008 * sm(0.74, 1.0, t) ** 1.8 + 0.0015 * sm(0.04, 0.0, t),
+        sole=0.0035,
+        stack=lambda t: 0.016,
+        wall=lambda t: 0.013,
         flare=lambda t: 0.0,
-        upper_h=lambda t: 0.056 + 0.006 * sm(0.1, 0.0, t) + 0.014 * sm(0.3, 0.5, t) - 0.042 * sm(0.5, 0.9, t) - 0.022 * sm(0.9, 1.0, t),
-        knit=False, mid_r=0.0025,
+        upper_h=lambda t: 0.058 + 0.007 * sm(0.1, 0.0, t) + 0.013 * sm(0.3, 0.5, t) - 0.042 * sm(0.5, 0.9, t) - 0.022 * sm(0.9, 1.0, t),
+        holes=7,
     ),
 }
+EPS = 1e-6
+
+
+def side_profile(zbot, ztop, rb, rt, inset, steps, rows):
+    """Profile rings round a slab: rounded bottom edge, a side wall of `rows` rings, rounded top edge.
+    inset(t, k): how far each ring sits in from the outline (k = 0 at the bottom of the wall, 1 at the top)."""
+    prof = []
+    for i in range(steps + 1):
+        a = math.pi * 1.5 - (math.pi / 2) * i / steps
+        prof.append((lambda t, a=a: inset(t, 0.0) + rb + rb * math.cos(a), lambda t, a=a: zbot(t) + rb + rb * math.sin(a)))
+    for j in range(1, rows):
+        k = j / rows
+        prof.append((lambda t, k=k: inset(t, k), lambda t, k=k: lerp(zbot(t) + rb, ztop(t) - rt, k)))
+    for i in range(steps + 1):
+        a = math.pi - (math.pi / 2) * i / steps
+        prof.append((lambda t, a=a: inset(t, 1.0) + rt + rt * math.cos(a), lambda t, a=a: ztop(t) - rt + rt * math.sin(a)))
+    return prof
+
+
+def dash_strip(bm, pts, normals, length=0.0024, gap=0.0016, w=0.0006, lift=0.0004):
+    """Stitches: short raised dashes along a polyline sitting on a surface."""
+    acc, on, start = 0.0, True, None
+    seg = []
+    for i in range(1, len(pts)):
+        a, b = pts[i - 1], pts[i]
+        d = (b - a).length
+        if d < 1e-9:
+            continue
+        acc += d
+        if on and acc >= length:
+            seg.append((start or a, b, normals[i]))
+            on, acc, start = False, 0.0, None
+        elif not on and acc >= gap:
+            on, acc, start = True, 0.0, b
+    for a, b, n in seg:
+        mid = (a + b) / 2
+        dvec = (b - a)
+        ln = max(dvec.length, 1e-6)
+        if ln > length * 1.8:  # a jump in the line (a seam or the end of a loop), not a stitch
+            continue
+        r = bmesh.ops.create_cube(bm, size=1.0)
+        # Build a little box along the stitch direction.
+        ax = dvec / ln
+        up = n.normalized()
+        side = ax.cross(up).normalized()
+        m = Matrix((ax * ln, side * w, up * w * 0.9)).transposed()
+        bmesh.ops.transform(bm, matrix=m.to_4x4(), verts=r['verts'])
+        bmesh.ops.translate(bm, vec=mid + up * lift, verts=r['verts'])
 
 
 def build(kind='runner', lod='high'):
     K = KINDS[kind]
     hi = lod in ('high', 'photo')
     SUB = {'photo': 2, 'high': 1, 'low': 1}[lod]
-    n_side = 64 if hi else 36
+    n_side = {'photo': 150, 'high': 104, 'low': 64}[lod]
     pts = outline(n_side)
+    runner = kind == 'runner'
     mats = {
-        'outsole': C.material('outsole', (0.05, 0.05, 0.05), roughness=0.75),
+        'outsole': C.material('outsole', (0.05, 0.05, 0.05), roughness=0.8),
         'midsole': C.material('midsole', (0.86, 0.84, 0.8), roughness=0.55),
-        'insole': C.material('insole', (0.2, 0.2, 0.22), roughness=0.9),
-        'upper': C.material('upper', (0.8, 0.78, 0.74), roughness=0.85 if K['knit'] else 0.42, coat=0.0 if K['knit'] else 0.3),
+        'insole': C.material('insole', (0.18, 0.18, 0.2), roughness=0.9),
+        'upper': C.material('upper', (0.8, 0.78, 0.74), roughness=0.82 if runner else 0.42, coat=0.0 if runner else 0.25),
+        'overlay': C.material('overlay', (0.8, 0.78, 0.74), roughness=0.35 if runner else 0.4, coat=0.35 if runner else 0.3),
         'tongue': C.material('tongue', (0.8, 0.78, 0.74), roughness=0.85),
+        'label': C.material('label', (0.03, 0.03, 0.035), roughness=0.7),
         'laces': C.material('laces', (0.9, 0.9, 0.88), roughness=0.8),
         'eyelets': C.material('eyelets', (0.75, 0.75, 0.76), metallic=1.0, roughness=0.3),
-        'heel_tab': C.material('heel_tab', (0.12, 0.12, 0.12), roughness=0.6),
+        'trim': C.material('trim', (0.12, 0.12, 0.12), roughness=0.5, coat=0.2),
         'stitch': C.material('stitch', (0.92, 0.9, 0.85), roughness=0.8),
+        'perf': C.material('perf', (0.02, 0.02, 0.02), roughness=0.9),
     }
-    if K['knit']:
-        with_normal(mats['upper'], knit_normal(os.path.join(TEX, 'vantrik_knit.png')), 0.9)
+    if runner:
+        with_normal(mats['upper'], knit_normal(os.path.join(TEX, 'vantrik_knit.png')), 1.35)
+        with_normal(mats['tongue'], knit_normal(os.path.join(TEX, 'vantrik_knit.png')), 0.8)
     else:
-        with_normal(mats['upper'], grain_normal(os.path.join(TEX, 'vantrik_grain.png')), 0.35)
+        g = grain_normal(os.path.join(TEX, 'vantrik_grain.png'))
+        for k in ('upper', 'overlay', 'tongue'):
+            with_normal(mats[k], g, 0.45)
 
-    zb, so, stack, flare = K['zb'], K['outsole'], K['stack'], K['flare']
+    zb, so, stack, flare, wall = K['zb'], K['sole'], K['stack'], K['flare'], K['wall']
     z_mid0 = lambda t: zb(t) + so
-    z_top = lambda t: zb(t) + so + stack(t)
+    z_bed = lambda t: zb(t) + so + stack(t)
+    z_top = lambda t: z_bed(t) + wall(t)
     objs = {}
 
-    # Outsole: a thin rubber plate with rounded edges.
-    objs['outsole'] = loft_solid('outsole', pts, rounded_profile(zb, z_mid0, 0.0012, 0.0008, inset=lambda t: 0.0006 - flare(t) * 0.6, steps=4), mats['outsole'])
-    # Midsole: the foam, flared at the heel and rounded top and bottom.
-    objs['midsole'] = loft_solid('midsole', pts, rounded_profile(lambda t: z_mid0(t) - 0.0004, z_top, 0.002, K['mid_r'], inset=(lambda t: -flare(t) * 0.4) if kind == 'runner' else (lambda t: -0.0025), bulge=flare, steps=6 if hi else 4), mats['midsole'])
-    # Insole: a thin pad that sits on the midsole inside the upper.
-    objs['insole'] = loft_solid('insole', pts, rounded_profile(lambda t: z_top(t) - 0.0005, lambda t: z_top(t) + 0.003, 0.001, 0.0015, inset=lambda t: 0.006, steps=3), mats['insole'])
+    # --- Sole ---------------------------------------------------------------------------------------------------
+    def mid_inset(t, k):
+        base = -flare(t) * 0.4 if runner else -0.0028
+        v = base - flare(t) * math.sin(math.pi * k) * 0.8
+        if runner:
+            # Horizontal ripples on the heel sidewall and vertical flex grooves under the forefoot.
+            v += 0.0011 * sm(0.5, 0.2, t) * (0.5 + 0.5 * math.cos(2 * math.pi * 3 * k)) * sm(0.05, 0.2, k) * sm(0.95, 0.8, k)
+            for tg in (0.6, 0.665, 0.73, 0.795):
+                v += 0.0012 * math.exp(-((t - tg) / 0.006) ** 2) * sm(0.62, 0.3, k)
+        else:
+            # A cupsole: one groove round the wall below the stitch line.
+            v += 0.0013 * math.exp(-((k - 0.36) / 0.07) ** 2)
+        return v
 
-    # Tread: rounded lugs on the bottom of the outsole (runner) or a herringbone of bars (court).
-    tread = []
-    for (x, y, t) in pts[:: (3 if hi else 5)]:
-        pass
+    objs['midsole'] = loft_solid('midsole', pts, side_profile(lambda t: z_mid0(t) - 0.0004, z_top, 0.0018, 0.004 if runner else 0.0016,
+                                                              mid_inset, 5 if hi else 3, 14 if hi else 7), mats['midsole'])
+
+    # Outsole: a rubber layer that wraps up the toe and the heel, with lug teeth showing on the side.
+    def wrap(t):
+        return (0.013 * sm(0.86, 1.0, t) + 0.008 * sm(0.08, 0.0, t)) if runner else 0.002 * sm(0.9, 1.0, t)
+
+    def out_inset(t, k):
+        teeth = 0.0012 * max(0.0, math.sin(2 * math.pi * 34 * t)) * sm(0.6, 0.2, k)
+        return mid_inset(t, 0.0) - 0.0009 - teeth
+
+    objs['outsole'] = loft_solid('outsole', pts, side_profile(zb, lambda t: z_mid0(t) + wrap(t), 0.0012, 0.0008, out_inset, 3, 5 if hi else 3), mats['outsole'])
+    # Lugs on the bottom: hexes on the runner, a herringbone on the court.
     bm = bmesh.new()
-    step = 0.011
+    step = 0.0095 if runner else 0.008
     for xi in np.arange(0.012, L - 0.008, step):
         t = xi / L
         w = half_width(t) - 0.006
         for yi in np.arange(-w, w + 1e-6, step):
-            if kind == 'runner':
-                r = bmesh.ops.create_cone(bm, cap_ends=True, segments=10 if hi else 6, radius1=0.0036, radius2=0.003, depth=0.0018)
+            if runner:
+                r = bmesh.ops.create_cone(bm, cap_ends=True, segments=6, radius1=0.0036, radius2=0.0029, depth=0.002)
             else:
                 r = bmesh.ops.create_cube(bm, size=1.0)
-                bmesh.ops.scale(bm, vec=(0.0085, 0.0022, 0.0016), verts=r['verts'])
-                bmesh.ops.rotate(bm, cent=(0, 0, 0), matrix=__import__('mathutils').Matrix.Rotation(math.radians(35 if int(xi / step) % 2 else -35), 3, 'Z'), verts=r['verts'])
-            bmesh.ops.translate(bm, vec=(xi, yi + (step / 2 if int(xi / step) % 2 else 0), zb(t) - 0.0007), verts=r['verts'])
-    lugs = C.obj_from_bmesh('tread', bm, mats['outsole'])
+                bmesh.ops.scale(bm, vec=(0.0075, 0.0018, 0.0014), verts=r['verts'])
+                bmesh.ops.rotate(bm, cent=(0, 0, 0), matrix=Matrix.Rotation(math.radians(38 if int(xi / step) % 2 else -38), 3, 'Z'), verts=r['verts'])
+            bmesh.ops.translate(bm, vec=(xi, yi + (step / 2 if int(xi / step) % 2 else 0), zb(t) - 0.0008), verts=r['verts'])
+    lugs = C.obj_from_bmesh('tread', bm, mats['outsole'], smooth=False)
     objs['outsole'] = C.join('outsole', [objs['outsole'], lugs])
+    objs['insole'] = loft_solid('insole', pts, rounded_profile(lambda t: z_bed(t) - 0.0005, lambda t: z_bed(t) + 0.003, 0.001, 0.0015, inset=lambda t: 0.006, steps=3), mats['insole'])
 
-    # Upper: lofted along the foot from cross-section arches. Each slice is a rounded arch from the lateral edge of
-    # the sole, over the foot, down to the medial edge. Around the collar and the throat the top of the arch is cut
-    # away (phi_open), which leaves a smooth U-shaped opening. Over the toe the arch is whole.
+    # --- Upper --------------------------------------------------------------------------------------------------
+    # Lofted from cross-section arches: each slice runs from the lateral edge of the sole, over the foot, to the
+    # medial edge. The collar and the throat cut the top of the arch away (phi_open).
     H = K['upper_h']
-    cols = 72 if hi else 40
-    half = 14 if hi else 8  # rows per side of the arch
-    pw = 2.6  # superellipse power: a rounded box, not a circle
+    cols = {'photo': 96, 'high': 72, 'low': 40}[lod]
+    half = {'photo': 16, 'high': 12, 'low': 7}[lod]
+    pw = 2.6
 
     def phi_open(t):
-        # Higher at the back of the heel, lowest at the ankle bones, then a narrow throat that closes at the toe box.
         collar = lerp(0.72, 0.95, sm(0.0, 0.2, t))
         return lerp(lerp(collar, 0.36, sm(0.24, 0.4, t)), 0.0, sm(0.64, 0.73, t))
 
     def arch_pt(t, phi):
+        t = min(1.0, max(0.0, t))
         w = 0.0 if t <= 0 or t >= 1 else half_width(t, phi > 0) + 0.0004
+        hh = H(t)
+        if not runner:  # creases across the vamp where the foot bends
+            c = 0.0009 * math.exp(-((t - 0.69) / 0.02) ** 2) * (1 - abs(phi) / (math.pi / 2)) * (0.5 + 0.5 * math.sin(phi * 14))
+            w += c
+            hh += c
         sn, cs = math.sin(phi), math.cos(phi)
-        e = 2 / lerp(pw, 2.0, sm(0.7, 1.0, t))  # boxy at the heel, round at the toe
+        e = 2 / lerp(pw, 2.0, sm(0.7, 1.0, t))
         y = w * math.copysign(abs(sn) ** e, sn)
-        z = z_top(t) - 0.002 + H(t) * abs(cs) ** e
-        return (t * L, y, z)
+        z = z_bed(t) - 0.002 + hh * abs(cs) ** e
+        return Vector((t * L, y, z))
+
+    def apos(t, a, side):  # a = 0 at the opening edge (or the center line), 1 at the sole
+        po = phi_open(t)
+        return side * (po + (math.pi / 2 - po) * a)
+
+    def surf(t, a, side):
+        t = min(0.9985, max(0.0015, t))
+        p = arch_pt(t, apos(t, a, side))
+        e = 0.002
+        dt = arch_pt(t + e, apos(t + e, a, side)) - arch_pt(t - e, apos(t - e, a, side))
+        a0, a1 = max(0.0, a - 0.02), min(1.0, a + 0.02)
+        da = arch_pt(t, apos(t, a1, side)) - arch_pt(t, apos(t, a0, side))
+        n = dt.cross(da)
+        if n.length < 1e-9:
+            n = Vector((0, side, 0.3))
+        n.normalize()
+        ref = p - Vector((t * L, 0, z_bed(t) + 0.3 * H(t)))
+        if n.dot(ref) < 0:
+            n = -n
+        return p, n
 
     bm = bmesh.new()
     uv = bm.loops.layers.uv.new('UVMap')
@@ -269,195 +374,260 @@ def build(kind='runner', lod='high'):
     for t in ts:
         po = phi_open(t)
         col = []
-        for r in range(half + 1):  # lateral: from the sole edge up to the opening edge
-            u = r / half
-            col.append(arch_pt(t, -(math.pi / 2) + (math.pi / 2 - po) * u))
-        for r in range(half + 1):  # medial: from the opening edge down to the sole edge
-            u = r / half
-            col.append(arch_pt(t, po + (math.pi / 2 - po) * u))
-        top_lat.append((col[half], t)); top_med.append((col[half + 1], t))
+        for r in range(half + 1):
+            col.append(arch_pt(t, -(math.pi / 2) + (math.pi / 2 - po) * r / half))
+        for r in range(half + 1):
+            col.append(arch_pt(t, po + (math.pi / 2 - po) * r / half))
+        top_lat.append((col[half].copy(), t)); top_med.append((col[half + 1].copy(), t))
         grid.append([bm.verts.new(c) for c in col])
     nrows = len(grid[0])
     for i in range(cols):
         for r in range(nrows - 1):
             if r == half and phi_open(ts[i]) > 1e-4 and phi_open(ts[i + 1]) > 1e-4:
-                continue  # the opening between the two walls
+                continue
             f = bm.faces.new((grid[i][r], grid[i + 1][r], grid[i + 1][r + 1], grid[i][r + 1]))
             for loop, (ii, rr) in zip(f.loops, ((i, r), (i + 1, r), (i + 1, r + 1), (i, r + 1))):
-                loop[uv].uv = (ts[ii] * 7.0, rr / (nrows - 1) * 4.0)
-    # Where the arch is whole the two middle rows meet at the top: weld them.
-    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-6)
+                loop[uv].uv = (ts[ii] * 8.0, rr / (nrows - 1) * 3.0)
+    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=EPS)
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
     up = C.obj_from_bmesh('upper', bm, mats['upper'])
-    sol = up.modifiers.new('Thick', 'SOLIDIFY')
-    sol.thickness = 0.003 if kind == 'runner' else 0.0022
-    sol.offset = -1
+    UT = 0.0028 if runner else 0.0022
+    sol = up.modifiers.new('Thick', 'SOLIDIFY'); sol.thickness = UT; sol.offset = 0  # centered, so panels can sit just outside it
     subsurf(up, SUB)
-    objs['upper'] = up
 
-    # A padded roll along the whole opening edge: the collar round the heel and both edges of the throat.
-    loop = [Vector(c) for c, t in reversed(top_lat) if 0.0 < t <= 0.6] + [Vector(c) for c, t in top_med if 0.0 < t <= 0.6]
+    # Padded collar: a roll round the opening, fatter at the two ankle bolsters.
+    loop = [(c, t) for c, t in reversed(top_lat) if 0.0 < t <= 0.66] + [(c, t) for c, t in top_med if 0.0 < t <= 0.66]
     cu = bpy.data.curves.new('collar', 'CURVE')
     cu.dimensions = '3D'
-    cu.bevel_depth = 0.0032 if kind == 'runner' else 0.0022
+    cu.bevel_depth = 0.0026 if runner else 0.002
     cu.bevel_resolution = 4 if hi else 2
-    cu.resolution_u = 6
     sp = cu.splines.new('POLY')
     sp.points.add(len(loop) - 1)
-    for pnt, co in zip(sp.points, loop):
-        pnt.co = (co.x + 0.0008, co.y * 0.96, co.z - 0.0012, 1)
-    sp.type = 'BEZIER' if False else 'POLY'
+    for pnt, (co, t) in zip(sp.points, loop):
+        pnt.co = (co.x + 0.0008, co.y * 0.96, co.z - 0.001, 1)
+        pnt.radius = 1.0 + 0.9 * math.exp(-((t - 0.16) / 0.05) ** 2) - 0.45 * sm(0.3, 0.42, t)
     co_ = bpy.data.objects.new('collar', cu)
     bpy.context.collection.objects.link(co_)
-    co_.data.materials.append(mats['upper'])
+    co_.data.materials.append(mats['upper'] if runner else mats['overlay'])
     C.apply_all(co_)
     collar = bpy.context.view_layer.objects.active
-    sm_ = collar.modifiers.new('Smooth', 'SMOOTH'); sm_.iterations = 6
+    m_ = collar.modifiers.new('Smooth', 'SMOOTH'); m_.iterations = 8
     for poly in collar.data.polygons:
         poly.use_smooth = True
-    objs['upper'] = C.join('upper', [objs['upper'], collar])
+    objs['upper'] = C.join('upper', [up, collar])
 
-    # Heel counter: a second layer wrapped round the heel, colored with the heel tab. It climbs to near the collar
-    # at the back and sweeps down to the sole by mid-foot.
-    bm = bmesh.new()
-    hcols, hrows = (28, 10) if hi else (16, 6)
-    hg = []
-    for i in range(hcols + 1):
-        t = 0.27 * i / hcols
-        f = lerp(0.92, 0.0, sm(0.06, 0.27, t)) * (1 - 0.15 * sm(0.0, 0.08, t))
-        col = []
-        for side in (-1, 1):
-            po = phi_open(t)
-            for r in range(hrows + 1):
-                u = r / hrows * f
-                ph = side * ((math.pi / 2) - (math.pi / 2 - po) * u)
-                x, y, z = arch_pt(t, ph)
-                col.append((x - 0.0032 * (1 - sm(0.0, 0.06, t)), y * 1.07 + side * 0.0022, z))
-        hg.append([bm.verts.new(c) for c in col])
-    n2 = hrows + 1
-    for i in range(hcols):
-        for side in range(2):
-            for r in range(hrows):
-                a0 = side * n2 + r
-                f_ = bm.faces.new((hg[i][a0], hg[i + 1][a0], hg[i + 1][a0 + 1], hg[i][a0 + 1]))
-    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-6)
-    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
-    hc = C.obj_from_bmesh('heel_counter', bm, mats['heel_tab'])
-    s4 = hc.modifiers.new('Thick', 'SOLIDIFY'); s4.thickness = 0.0016; s4.offset = 1
-    subsurf(hc, SUB)
-    objs['heel_tab'] = None  # filled below; the counter joins the pull tab
+    # --- Overlays: each panel sits on the upper, has a thickness and a row of stitches along its edge -----------
+    stitch_bm = bmesh.new()
 
-    # Lace holes along the throat edges.
+    def panel(name, mat, fn, nu, nv, off=None, thick=0.0012, sides=(-1, 1), stitch=('v0',), inset=0.0016):
+        off = UT / 2 + 0.0005 if off is None else off
+        bm = bmesh.new()
+        outward = {}
+        for side in sides:
+            g = []
+            for i in range(nu + 1):
+                row = []
+                for j in range(nv + 1):
+                    t, a = fn(i / nu, j / nv)
+                    p, n = surf(t, min(1.0, max(0.0, a)), side)
+                    v = bm.verts.new(p + n * off)
+                    outward[v] = n
+                    row.append(v)
+                g.append(row)
+            for i in range(nu):
+                for j in range(nv):
+                    f = bm.faces.new((g[i][j], g[i + 1][j], g[i + 1][j + 1], g[i][j + 1]))
+                    f.normal_update()
+                    # Faces must face away from the foot so the thickness grows outward, on top of the upper.
+                    if f.normal.dot(sum((outward[v] for v in f.verts), Vector())) < 0:
+                        f.normal_flip()
+            # Stitch rows just inside the chosen edges.
+            for edge in stitch:
+                line, nrm = [], []
+                steps = 120
+                for s in range(steps + 1):
+                    u = s / steps
+                    if edge == 'v0': uu, vv = u, inset * 40
+                    elif edge == 'v1': uu, vv = u, 1 - inset * 40
+                    elif edge == 'u0': uu, vv = inset * 40, u
+                    else: uu, vv = 1 - inset * 40, u
+                    t, a = fn(uu, vv)
+                    p, n = surf(t, min(1.0, max(0.0, a)), side)
+                    line.append(p + n * (off + thick)); nrm.append(n)
+                dash_strip(stitch_bm, line, nrm)
+        bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-5)
+        o = C.obj_from_bmesh(name, bm, mat)
+        s = o.modifiers.new('Thick', 'SOLIDIFY'); s.thickness = thick; s.offset = 1
+        subsurf(o, SUB)
+        return o
 
+    q = 1 if hi else 2
+    overlays, trims = [], []
+    # Heel counter: climbs near the collar at the back and sweeps down to the sole by mid-foot.
+    hc_top = lambda t: lerp(0.94, 0.0, sm(0.06, 0.3, t))
+    trims.append(panel('counter', mats['trim'] if runner else mats['overlay'],
+                       lambda u, v: (lerp(0.0015, 0.3, u), lerp(1 - hc_top(lerp(0.0015, 0.3, u)), 1.0, v)), 30 // q, 8 // q))
+    # Eyestay: a strip along each side of the throat that carries the eyelets.
+    trims.append(panel('eyestay', mats['trim'] if runner else mats['overlay'],
+                       lambda u, v: (lerp(0.33, 0.69, u), v * 0.24 * sm(0.0, 0.08, u) * sm(1.0, 0.86, u) + 0.002), 30 // q, 4, stitch=('v1',)))
+    if runner:
+        # Mudguard: a smooth band low round the toe and the forefoot.
+        mg = lambda t: 0.36 * sm(0.48, 0.62, t) + 0.12 * sm(0.78, 0.96, t)
+        overlays.append(panel('mudguard', mats['overlay'], lambda u, v: (lerp(0.48, 0.999, u), lerp(1 - mg(lerp(0.48, 0.999, u)), 1.0, v)), 40 // q, 6 // q))
+    else:
+        # Toe cap with a curved back edge, and a perforated toe box behind it.
+        overlays.append(panel('toecap', mats['overlay'], lambda u, v: (lerp(0.79 + 0.06 * v * v, 0.999, u), v), 18 // q, 14 // q, stitch=('u0',)))
+    # Side stripe: a diagonal band on both sides, wider in the middle.
+    def stripe(u, v):
+        t = lerp(0.22, 0.6, u)
+        c = lerp(0.8, 0.3, u)
+        w = 0.2 * sm(0.0, 0.12, u) * sm(1.0, 0.88, u) + 0.02
+        return t, c + (v - 0.5) * w
+    trims.append(panel('stripe', mats['trim'], stripe, 32 // q, 4, stitch=('v0', 'v1'), inset=0.004))
+
+    # Perforations on the court toe box.
+    if not runner:
+        pb = bmesh.new()
+        for t in np.arange(0.7, 0.785, 0.0115):
+            for a in np.arange(0.06, 0.62, 0.085):
+                for side in (-1, 1):
+                    p, n = surf(t, a, side)
+                    r = bmesh.ops.create_icosphere(pb, subdivisions=2 if hi else 1, radius=0.0009)
+                    bmesh.ops.scale(pb, vec=(1, 1, 0.5), verts=r['verts'])
+                    bmesh.ops.translate(pb, vec=p + n * (UT / 2 + 0.0003), verts=r['verts'])
+        objs['perf'] = C.obj_from_bmesh('perf', pb, mats['perf'])
+
+    objs['overlay'] = C.join('overlay', overlays)
+
+    # Lace holes along the eyestays.
     pairs = []
-    n_holes = 5 if kind == 'runner' else 6
-    for k in range(n_holes):
-        tt = lerp(0.41, 0.665, k / (n_holes - 1))
-        a = Vector(min(top_lat, key=lambda p: abs(p[1] - tt))[0])
-        b = Vector(min(top_med, key=lambda p: abs(p[1] - tt))[0])
-        pairs.append((a, b))
+    for k in range(K['holes']):
+        tt = lerp(0.4, 0.665, k / (K['holes'] - 1))
+        pa, na = surf(tt, 0.11, -1)
+        pb_, nb = surf(tt, 0.11, 1)
+        pairs.append((pa + na * (UT / 2 + 0.0034), pb_ + nb * (UT / 2 + 0.0034), na, nb))
 
-    # Tongue: a padded strip under the laces that stands up out of the collar.
+    # Tongue: padded, under the laces, with a woven label and a pull loop at the top.
     bm = bmesh.new()
-    tr, tc = 12, 8
+    tr, tc = 14, 8
     tv = []
     for i in range(tr + 1):
-        t = lerp(0.3, 0.7, i / tr)
+        t = lerp(0.29, 0.71, i / tr)
         row = []
         half_w = min(0.5, phi_open(t) + 0.16)
         for j in range(tc + 1):
             k = lerp(-1.0, 1.0, j / tc)
-            x, y, z = arch_pt(t, k * half_w)
-            # Raised in the middle, tucked just inside the upper at its edges.
-            lift = (0.0015 + 0.014 * sm(0.38, 0.3, t)) * (1 - k * k) - 0.003 * k * k
-            row.append(bm.verts.new((x - 0.004 * sm(0.36, 0.3, t), y * (1 - 0.06 * k * k), z + lift)))
+            p = arch_pt(t, k * half_w)
+            lift = (0.0015 + 0.016 * sm(0.38, 0.29, t)) * (1 - k * k) - 0.003 * k * k
+            row.append(bm.verts.new((p.x - 0.005 * sm(0.36, 0.29, t), p.y * (1 - 0.06 * k * k), p.z + lift)))
         tv.append(row)
     for i in range(tr):
         for j in range(tc):
             bm.faces.new((tv[i][j], tv[i][j + 1], tv[i + 1][j + 1], tv[i + 1][j]))
-    tg = C.obj_from_bmesh('tongue', bm, mats['upper' if kind == 'court' else 'tongue'])
-    s2 = tg.modifiers.new('Thick', 'SOLIDIFY'); s2.thickness = 0.0045; s2.offset = -1
+    tg = C.obj_from_bmesh('tongue', bm, mats['tongue'] if runner else mats['upper'])
+    s2 = tg.modifiers.new('Thick', 'SOLIDIFY'); s2.thickness = 0.005; s2.offset = -1
     subsurf(tg, SUB)
     objs['tongue'] = tg
+    tt = 0.335
+    tp = arch_pt(tt, 0.0)
+    ztongue = tp.z + 0.0015 + 0.016 * sm(0.38, 0.29, tt)
+    bpy.ops.mesh.primitive_cube_add(size=1, location=(tp.x - 0.005 * sm(0.36, 0.29, tt), 0, ztongue + 0.0006))
+    lab = bpy.context.object
+    lab.name = 'label'
+    lab.data.name = 'label'
+    lab.scale = (0.014, 0.019, 0.0012)
+    lab.rotation_euler = (0, math.radians(-22), 0)
+    C.bevel(lab, 0.0004, 2)
+    lab.data.materials.append(mats['label'])
+    cu = bpy.data.curves.new('loop', 'CURVE')
+    cu.dimensions = '3D'; cu.bevel_depth = 0.0011; cu.bevel_resolution = 2
+    spl = cu.splines.new('BEZIER'); spl.bezier_points.add(2)
+    x0 = tp.x - 0.007
+    for bp, co in zip(spl.bezier_points, ((x0 + 0.004, 0, ztongue + 0.003), (x0 - 0.006, 0, ztongue + 0.012), (x0 - 0.002, 0, ztongue - 0.001))):
+        bp.co = co; bp.handle_left_type = bp.handle_right_type = 'AUTO'
+    lo_ = bpy.data.objects.new('loop', cu); bpy.context.collection.objects.link(lo_); lo_.data.materials.append(mats['trim'])
+    C.apply_all(lo_)
+    loop_o = bpy.context.view_layer.objects.active
+    objs['label'] = lab
 
-    # Eyelets: metal rings at each lace hole, tilted with the throat. Laces: round cord, criss-crossed over the
-    # tongue from the toe end up, with a straight bar at the bottom pair.
-    eyelets = []
-    for a, b in pairs:
-        for p in (a, b):
-            bpy.ops.mesh.primitive_torus_add(major_radius=0.0026, minor_radius=0.0008, major_segments=20 if hi else 10, minor_segments=8 if hi else 5,
-                                             location=p, rotation=(math.radians(-60 if p.y < 0 else 60), 0, 0))
-            eyelets.append(bpy.context.object)
-    objs['eyelets'] = C.join('eyelets', eyelets)
+    # Eyelets and laces, criss-crossed over the tongue from the toe end up.
+    eyes = []
+    for pa, pb_, na, nb in pairs:
+        for p, n in ((pa, na), (pb_, nb)):
+            bpy.ops.mesh.primitive_torus_add(major_radius=0.0025, minor_radius=0.0007, major_segments=20 if hi else 10, minor_segments=8 if hi else 5, location=p)
+            o = bpy.context.object
+            o.rotation_euler = Vector((0, 0, 1)).rotation_difference(n).to_euler()
+            eyes.append(o)
+    objs['eyelets'] = C.join('eyelets', eyes)
     objs['eyelets'].data.materials.clear(); objs['eyelets'].data.materials.append(mats['eyelets'])
     for p in objs['eyelets'].data.polygons:
         p.use_smooth = True
     cu = bpy.data.curves.new('laces', 'CURVE')
     cu.dimensions = '3D'
-    cu.bevel_depth = 0.0017
+    cu.bevel_depth = 0.0017 if runner else 0.0014
     cu.bevel_resolution = 4 if hi else 2
     cu.resolution_u = 16 if hi else 6
 
-    def span(p0, p1, rise):
+    def span(p0, p1):
+        t = ((p0.x + p1.x) / 2) / L
+        mid = (p0 + p1) / 2
+        mid.z = arch_pt(t, 0.0).z + 0.0072 + 0.012 * sm(0.42, 0.36, t)
         sp = cu.splines.new('BEZIER')
         sp.bezier_points.add(2)
-        mid = (p0 + p1) / 2
-        mid.z += rise
         for bp, co in zip(sp.bezier_points, (p0, mid, p1)):
             bp.co = co
             bp.handle_left_type = bp.handle_right_type = 'AUTO'
 
-    lift = Vector((0, 0, 0.0012))
-    ordered = sorted(pairs, key=lambda ab: -ab[0].x)  # toe end first
-
-    def rise(p0, p1):  # clear the tongue: from the eyelets up over its center
-        t = ((p0.x + p1.x) / 2) / L
-        return arch_pt(t, 0.0)[2] + 0.0075 - (p0.z + p1.z) / 2
-
-    span(ordered[0][0] + lift, ordered[0][1] + lift, rise(*ordered[0]))
-    for (a0, b0), (a1, b1) in zip(ordered, ordered[1:]):
-        span(a0 + lift, b1 + lift, rise(a0, b1))
-        span(b0 + lift, a1 + lift, rise(b0, a1) + 0.0012)
+    ordered = sorted(pairs, key=lambda ab: -ab[0].x)
+    span(ordered[0][0], ordered[0][1])
+    for (a0, b0, _, _), (a1, b1, _, _) in zip(ordered, ordered[1:]):
+        span(a0, b1)
+        span(b0, a1)
     lo = bpy.data.objects.new('laces', cu)
     bpy.context.collection.objects.link(lo)
     lo.data.materials.append(mats['laces'])
     C.apply_all(lo)
     objs['laces'] = bpy.context.view_layer.objects.active
 
-    # Heel tab: a pull loop against the back of the collar, standing a little above it.
+    # Heel pull tab above the back of the collar.
     bm = bmesh.new()
-    zt = arch_pt(0.03, phi_open(0.03))[2]
+    zt = arch_pt(0.03, phi_open(0.03)).z
     hv = []
     for i in range(11):
         k = i / 10
-        z = zt - 0.026 + 0.04 * k
-        x = -0.0018 - 0.0035 * math.sin(math.pi * k) - 0.002 * k
-        hv.append([bm.verts.new((x, yy, z)) for yy in (-0.0105, 0.0105)])
+        z = zt - 0.024 + 0.038 * k
+        x = -0.004 - 0.0035 * math.sin(math.pi * k) - 0.002 * k
+        hv.append([bm.verts.new((x, yy, z)) for yy in (-0.0095, 0.0095)])
     for i in range(10):
         bm.faces.new((hv[i][0], hv[i][1], hv[i + 1][1], hv[i + 1][0]))
-    ht = C.obj_from_bmesh('heel_tab', bm, mats['heel_tab'])
-    s3 = ht.modifiers.new('Thick', 'SOLIDIFY'); s3.thickness = 0.0028; s3.offset = 1
+    ht = C.obj_from_bmesh('heel_tab', bm, mats['trim'])
+    s3 = ht.modifiers.new('Thick', 'SOLIDIFY'); s3.thickness = 0.0026; s3.offset = 1
     subsurf(ht, SUB)
-    objs['heel_tab'] = C.join('heel_tab', [ht, hc])
+    objs['trim'] = C.join('trim', [ht, loop_o] + trims)
 
-    # Stitching: short dashes around the top of the sole (court) or along the toe of the midsole (runner).
-    bm = bmesh.new()
+    objs['stitch'] = C.obj_from_bmesh('stitch', stitch_bm, mats['stitch'], smooth=False)
+    # Sole stitching: a row round the cupsole (court) or along the toe of the midsole (runner).
+    stitch_bm = bmesh.new()
     nrm2 = normals2d(pts)
-    for i, ((x, y, t), (nx, ny)) in enumerate(zip(pts, nrm2)):
-        if i % 2:
+    line, nl = [], []
+    for (x, y, t), (nx, ny) in zip(pts, nrm2):
+        if runner and not (0.56 < t < 0.97):
+            if line:
+                dash_strip(stitch_bm, line, nl)
+                line, nl = [], []
             continue
-        z = z_top(t) - (0.005 if kind == 'court' else 0.009)
-        if kind == 'runner' and not (0.55 < t < 0.98):
-            continue
-        out = 0.0007 + (flare(t) * 0.4 if kind == 'runner' else 0.0004)
-        r = bmesh.ops.create_cube(bm, size=1.0)
-        bmesh.ops.scale(bm, vec=(0.0028, 0.0007, 0.0007), verts=r['verts'])
-        ang = math.atan2(-nx, ny)
-        bmesh.ops.rotate(bm, cent=(0, 0, 0), matrix=__import__('mathutils').Matrix.Rotation(ang, 3, 'Z'), verts=r['verts'])
-        bmesh.ops.translate(bm, vec=(x + nx * out, y + ny * out, z), verts=r['verts'])
-    st = C.obj_from_bmesh('stitch', bm, mats['stitch'])
-    objs['stitch'] = st
+        z = z_top(t) - (0.0055 if not runner else 0.009)
+        k = (z - z_mid0(t)) / max(1e-6, z_top(t) - z_mid0(t))
+        out = -mid_inset(t, k) + 0.0003
+        line.append(Vector((x + nx * out, y + ny * out, z)))
+        nl.append(Vector((nx, ny, 0)))
+    if line:
+        if not runner:
+            line.append(line[0]); nl.append(nl[0])
+        dash_strip(stitch_bm, line, nl)
+    objs['sole_stitch'] = C.obj_from_bmesh('sole_stitch', stitch_bm, mats['stitch'], smooth=False)
     return objs
+
 
 
 if __name__ == '__main__':

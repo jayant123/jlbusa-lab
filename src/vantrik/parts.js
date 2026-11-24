@@ -5,7 +5,7 @@ export const PARTS = [
   { id: 'midsole', label: 'Midsole' },
   { id: 'outsole', label: 'Outsole' },
   { id: 'laces', label: 'Laces' },
-  { id: 'heel_tab', label: 'Heel tab' },
+  { id: 'trim', label: 'Trim' },
 ];
 
 export const PALETTE = {
@@ -17,23 +17,23 @@ export const MODELS = {
   'vantrik-vk1-runner': {
     name: 'VK-1 Runner', kind: 'runner', line: 'Knit runner',
     colorways: {
-      Bone: { upper: 'Bone', midsole: 'Chalk', outsole: 'Graphite', laces: 'Chalk', heel_tab: 'Ember' },
-      Ember: { upper: 'Ember', midsole: 'Bone', outsole: 'Night', laces: 'Bone', heel_tab: 'Night' },
-      Night: { upper: 'Night', midsole: 'Graphite', outsole: 'Night', laces: 'Night', heel_tab: 'Volt' },
-      Moss: { upper: 'Moss', midsole: 'Bone', outsole: 'Clay', laces: 'Bone', heel_tab: 'Clay' },
+      Bone: { upper: 'Bone', midsole: 'Chalk', outsole: 'Graphite', laces: 'Chalk', trim: 'Ember' },
+      Ember: { upper: 'Ember', midsole: 'Bone', outsole: 'Night', laces: 'Bone', trim: 'Night' },
+      Night: { upper: 'Night', midsole: 'Graphite', outsole: 'Night', laces: 'Night', trim: 'Volt' },
+      Moss: { upper: 'Moss', midsole: 'Bone', outsole: 'Clay', laces: 'Bone', trim: 'Clay' },
     },
   },
   'vantrik-vk2-court': {
     name: 'VK-2 Court', kind: 'court', line: 'Leather court',
     colorways: {
-      Chalk: { upper: 'Chalk', midsole: 'Chalk', outsole: 'Fog', laces: 'Chalk', heel_tab: 'Navy' },
-      Navy: { upper: 'Navy', midsole: 'Chalk', outsole: 'Chalk', laces: 'Navy', heel_tab: 'Chalk' },
-      Oxblood: { upper: 'Oxblood', midsole: 'Bone', outsole: 'Clay', laces: 'Oxblood', heel_tab: 'Bone' },
+      Chalk: { upper: 'Chalk', midsole: 'Chalk', outsole: 'Fog', laces: 'Chalk', trim: 'Navy' },
+      Navy: { upper: 'Navy', midsole: 'Chalk', outsole: 'Chalk', laces: 'Navy', trim: 'Chalk' },
+      Oxblood: { upper: 'Oxblood', midsole: 'Bone', outsole: 'Clay', laces: 'Oxblood', trim: 'Bone' },
     },
   },
 };
 export const CUSTOM = 'vantrik-custom-pair';
-export const CUSTOM_START = { upper: 'Sky', midsole: 'Chalk', outsole: 'Ember', laces: 'Chalk', heel_tab: 'Ember' };
+export const CUSTOM_START = { upper: 'Sky', midsole: 'Chalk', outsole: 'Ember', laces: 'Chalk', trim: 'Ember' };
 
 // Foot length in cm for each US men's size.
 export const SIZES = [

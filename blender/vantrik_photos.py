@@ -55,20 +55,20 @@ def shoe(kind, colors, loc=(0, 0, 0), rot=0.0, tag=''):
             if m.name not in done:
                 done[m.name] = m.copy()
             slot.material = done[m.name]
-    drive = {'upper': 'upper', 'tongue': 'upper', 'midsole': 'midsole', 'outsole': 'outsole', 'laces': 'laces', 'heel_tab': 'heel_tab'}
+    drive = {'upper': 'upper', 'tongue': 'upper', 'overlay': 'upper', 'midsole': 'midsole', 'outsole': 'outsole', 'laces': 'laces', 'trim': 'trim'}
     for base, m in done.items():
         key = base.split('.')[0]
         p = principled(m)
         if key in drive and colors.get(drive[key]):
             p.inputs['Base Color'].default_value = (*lin(colors[drive[key]]), 1)
-        if key == 'stitch':
-            c = colors.get('laces' if kind == 'court' else 'midsole', '#eeeeee')
-            p.inputs['Base Color'].default_value = (*[v * (1 if kind == 'court' else 0.7) for v in lin(c)], 1)
-        if key == 'upper' and kind == 'runner':
-            p.inputs['Sheen Weight'].default_value = 0.6
-            p.inputs['Sheen Roughness'].default_value = 0.5
-            foam_bump(m, 2400, 0.05)
-        if key == 'upper' and kind == 'court':
+        if key == 'stitch':  # thread matches the laces
+            p.inputs['Base Color'].default_value = (*[v * 0.92 for v in lin(colors.get('laces', '#eeeeee'))], 1)
+        if key == 'overlay' and kind == 'runner':  # the mudguard reads a shade deeper than the knit
+            p.inputs['Base Color'].default_value = (*[v * 0.8 for v in lin(colors['upper'])], 1)
+        if key in ('upper', 'tongue') and kind == 'runner':
+            p.inputs['Sheen Weight'].default_value = 0.55
+            p.inputs['Sheen Roughness'].default_value = 0.45
+        if key in ('upper', 'overlay') and kind == 'court':
             p.inputs['Coat Weight'].default_value = 0.25
             p.inputs['Coat Roughness'].default_value = 0.35
         if key == 'midsole':
@@ -107,19 +107,19 @@ def block(name, size, loc, mat, bevel=0.004):
     return o
 
 
-def studio(warm=False):
+def studio(dark=False):
     # A seamless sweep of pale concrete, a big soft key from the upper left, a fill and a thin rim behind.
     bpy.ops.mesh.primitive_plane_add(size=8, location=(0, 0, 0))
     floor = bpy.context.object
-    floor.data.materials.append(concrete('floor', (0.36, 0.36, 0.34), 0.95))
+    floor.data.materials.append(concrete('floor', (0.018, 0.018, 0.019) if dark else (0.36, 0.36, 0.34), 0.85 if dark else 0.95))
     bpy.ops.mesh.primitive_plane_add(size=8, location=(0, 1.6, 2), rotation=(math.pi / 2, 0, 0))
     wall = bpy.context.object
-    wall.data.materials.append(concrete('wall', (0.3, 0.3, 0.29), 1.0))
+    wall.data.materials.append(concrete('wall', (0.022, 0.022, 0.024) if dark else (0.3, 0.3, 0.29), 1.0))
     world = bpy.data.worlds.new('w')
     bpy.context.scene.world = world
     world.use_nodes = True
     world.node_tree.nodes['Background'].inputs['Color'].default_value = (0.55, 0.55, 0.53, 1)
-    world.node_tree.nodes['Background'].inputs['Strength'].default_value = 0.12
+    world.node_tree.nodes['Background'].inputs['Strength'].default_value = 0.02 if dark else 0.12
 
     def area(name, loc, target, size, power, color=(1, 1, 1)):
         d = bpy.data.lights.new(name, 'AREA')
@@ -133,6 +133,13 @@ def studio(warm=False):
         o.visible_camera = False
         bpy.context.collection.objects.link(o)
 
+    if dark:
+        # A low, moody set: a soft top key, two hard rims from behind and a warm kick from the right.
+        area('key', (-0.4, -0.7, 1.3), (0.25, 0.1, 0.08), 0.9, 34, (1.0, 0.96, 0.92))
+        area('rimL', (-0.7, 0.9, 0.35), (0.2, 0.1, 0.1), 0.25, 70, (0.85, 0.92, 1.0))
+        area('rimR', (1.1, 0.7, 0.3), (0.3, 0.1, 0.1), 0.25, 80, (1.0, 0.82, 0.62))
+        area('kick', (1.2, -0.6, 0.15), (0.3, 0.1, 0.1), 0.4, 18, (1.0, 0.6, 0.4))
+        return
     area('key', (-0.9, -1.0, 1.4), (0.15, 0, 0.05), 1.6, 70, (1.0, 0.97, 0.93))
     area('fill', (1.4, -1.2, 0.5), (0.15, 0, 0.05), 1.4, 16, (0.92, 0.95, 1.0))
     area('rim', (0.4, 1.0, 0.7), (0.15, 0, 0.05), 0.8, 30)
@@ -191,13 +198,13 @@ def main():
         camera((0.09, -0.64, 0.3), (0.012, 0.0, 0.072), 58)
         render(a['out'], int(a.get('w', 900)), int(a.get('h', 1125)), samples)
     elif job == 'hero':
-        mat = concrete('block', (0.46, 0.46, 0.44))
-        block('b1', (0.42, 0.26, 0.08), (0.14, 0.0, 0.04), mat)
-        block('b2', (0.38, 0.24, 0.2), (0.46, 0.26, 0.1), mat)
-        shoe('runner', json.loads(a['colors']), (0.14 - L / 2, -0.01, 0.08), math.radians(-6), 'a')
-        shoe('court', json.loads(a['colors2']), (0.46 - L / 2 + 0.01, 0.27, 0.2), math.radians(10), 'b')
-        studio()
-        camera((0.16, -1.36, 0.44), (0.1, 0.1, 0.14), 50, 11)
+        mat = concrete('block', (0.032, 0.032, 0.034), 0.85)
+        block('b1', (0.4, 0.26, 0.05), (0.2, 0.0, 0.025), mat)
+        block('b2', (0.38, 0.24, 0.14), (0.52, 0.28, 0.07), mat)
+        shoe('runner', json.loads(a['colors']), (0.2 - L / 2, -0.01, 0.05), math.radians(-8), 'a')
+        shoe('court', json.loads(a['colors2']), (0.52 - L / 2, 0.29, 0.14), math.radians(12), 'b')
+        studio(dark=True)
+        camera((0.12, -1.1, 0.1), (0.2, 0.1, 0.12), 46, 8)
         render(a['out'], int(a.get('w', 2400)), int(a.get('h', 1500)), samples)
     elif job == 'row':
         mat = concrete('block', (0.46, 0.46, 0.44))

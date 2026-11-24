@@ -21,11 +21,11 @@ const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 const COPY = {
   'vantrik-vk1-runner': {
     desc: 'A light runner for long days. The knit upper stretches where your foot bends. The foam is thick under the heel and thinner at the toe.',
-    materials: 'Upper: recycled polyester knit. Midsole: EVA blend foam. Outsole: carbon rubber at the heel and toe. Laces: cotton.',
+    materials: 'Upper: recycled polyester knit with a coated mudguard. Overlays: synthetic suede, stitched. Midsole: EVA blend foam. Outsole: rubber that wraps up the toe and heel. Laces: cotton.',
   },
   'vantrik-vk2-court': {
     desc: 'A low court shoe in full-grain leather. The rubber cupsole is stitched to the upper. It looks better after a few months of wear.',
-    materials: 'Upper: full-grain cow leather. Lining: cotton canvas. Cupsole: natural rubber, stitched by machine. Laces: waxed cotton.',
+    materials: 'Upper: full-grain cow leather with a perforated toe box. Lining: cotton canvas. Cupsole: natural rubber stitched to the upper. Laces: waxed cotton.',
   },
 };
 

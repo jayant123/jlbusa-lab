@@ -8,8 +8,14 @@ import { createStage } from '../kit/stage.js';
 const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
 const ease = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
 // Which color drives each mesh, and how far each one lifts when the shoe is taken apart (meters).
-const DRIVE = { upper: 'upper', tongue: 'upper', collar: 'upper', midsole: 'midsole', outsole: 'outsole', laces: 'laces', heel_tab: 'heel_tab', insole: null, eyelets: null, stitch: null };
-const LIFT = { outsole: -0.05, midsole: -0.02, stitch: -0.02, insole: 0.035, upper: 0.085, tongue: 0.085, laces: 0.085, eyelets: 0.085, heel_tab: 0.085 };
+// Colors follow the material: the overlay panels and the tongue take the upper's color, the thread takes the laces'.
+const DRIVE = { upper: 'upper', tongue: 'upper', overlay: 'upper', trim: 'trim', midsole: 'midsole', outsole: 'outsole', laces: 'laces', stitch: 'laces' };
+const SHADE = { overlay: 0.8, stitch: 0.92 }; // the runner's mudguard reads a shade deeper than its knit
+// Lift follows the part: the sole layers drop, the insole and the whole upper rise.
+const LIFT = { outsole: -0.05, midsole: -0.02, sole_stitch: -0.02, insole: 0.035 };
+const UPPER_LIFT = 0.085;
+const PARTS = ['outsole', 'midsole', 'sole_stitch', 'insole', 'upper', 'overlay', 'trim', 'tongue', 'label', 'laces', 'eyelets', 'stitch', 'perf'];
+const partOf = (o) => { for (let n = o; n; n = n.parent) { const k = PARTS.find((p) => n.name === p || n.name.startsWith(`${p}_`) || n.name.startsWith(`${p}.`)); if (k) return k; } return null; };
 const VIEW = {
   hero: [[0.08, 0.2, 0.74], [0, 0.05, 0]],
   pdp: [[0.1, 0.19, 0.72], [0, 0.045, 0]],
@@ -62,7 +68,9 @@ export async function createVantrikScene(canvas, { tier, reducedMotion, onReady,
   const lod = tier === 'low' ? 'low' : 'high';
   const [runG, courtG] = await Promise.all([stage.load(`/vantrik/runner-${lod}.glb`), stage.load(`/vantrik/court-${lod}.glb`)]);
   const rich = tier !== 'low';
+  const knitUpper = (gltf) => { let k = false; gltf.scene.traverse((o) => { if (o.isMesh && o.material.name === 'upper' && o.material.roughness > 0.7) k = true; }); return k; };
   function prep(gltf) {
+    const isKnit = knitUpper(gltf);
     const root = new THREE.Group();
     const spin = new THREE.Group();
     const box = new THREE.Box3().setFromObject(gltf.scene);
@@ -73,17 +81,20 @@ export async function createVantrikScene(canvas, { tier, reducedMotion, onReady,
     const parts = [];
     gltf.scene.traverse((o) => {
       if (!o.isMesh) return;
-      const name = Object.keys(DRIVE).find((k) => o.name.startsWith(k) || o.parent?.name?.startsWith(k)) || o.material.name;
+      const name = partOf(o);
       const src = o.material;
       const m = rich ? new THREE.MeshPhysicalMaterial() : new THREE.MeshStandardMaterial();
+      m.name = src.name;
       m.color.copy(src.color);
       m.roughness = src.roughness;
       m.metalness = src.metalness;
       if (src.normalMap) { m.normalMap = src.normalMap; m.normalScale.set(0.9, 0.9); }
-      if (rich && src.name === 'upper' && src.normalMap && src.roughness > 0.7) { m.sheen = 0.5; m.sheenRoughness = 0.6; m.sheenColor.set(0xffffff); }
-      if (rich && src.name === 'upper' && src.roughness < 0.6) { m.clearcoat = 0.25; m.clearcoatRoughness = 0.5; }
+      const knit = src.normalMap && src.roughness > 0.7;
+      if (rich && knit && ['upper', 'tongue'].includes(src.name)) { m.sheen = 0.55; m.sheenRoughness = 0.5; m.sheenColor.set(0xffffff); }
+      if (rich && !knit && ['upper', 'overlay', 'trim'].includes(src.name)) { m.clearcoat = 0.25; m.clearcoatRoughness = 0.45; }
       o.material = m;
-      parts.push({ mesh: o, part: name, drive: DRIVE[src.name] ?? DRIVE[name] ?? null, lift: LIFT[src.name] ?? LIFT[name] ?? 0, base: o.position.y, target: m.color.clone() });
+      const shade = src.name === 'overlay' && isKnit ? SHADE.overlay : src.name === 'stitch' ? SHADE.stitch : 1;
+      parts.push({ mesh: o, part: name, drive: DRIVE[src.name] ?? null, shade, lift: LIFT[name] ?? UPPER_LIFT, base: o.position.y, target: m.color.clone() });
     });
     return { root, spin, parts };
   }
@@ -98,10 +109,7 @@ export async function createVantrikScene(canvas, { tier, reducedMotion, onReady,
     if (k !== kind) { kind = k; fade = 0; }
     for (const [name, s] of Object.entries(shoes)) {
       s.root.visible = name === kind;
-      for (const p of s.parts) {
-        if (p.drive && colors[p.drive]) p.target.set(colors[p.drive]);
-        if (p.part === 'stitch' && colors.midsole) p.target.set(name === 'court' ? colors.laces || '#ffffff' : colors.midsole).multiplyScalar(name === 'court' ? 1 : 0.8);
-      }
+      for (const p of s.parts) if (p.drive && colors[p.drive]) p.target.set(colors[p.drive]).multiplyScalar(p.shade);
     }
   }
 
@@ -140,7 +148,7 @@ export async function createVantrikScene(canvas, { tier, reducedMotion, onReady,
       yawVel *= 0.94;
       if (!reducedMotion && !still && Math.abs(yawVel) < 0.0004) yaw += dt * 0.18;
     }
-    explode += (explodeT - explode) * sm(4);
+    explode += ((view === 'custom' ? explodeT : 0) - explode) * sm(4); // apart only in the designer
     fade = Math.min(1, fade + dt * 3);
     const s = shoes[kind];
     s.spin.rotation.y = yaw;
