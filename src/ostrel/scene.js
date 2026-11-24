@@ -146,8 +146,8 @@ export async function createOstrelScene(canvas, { tier, onReady, onFallback, red
   // The hands and indices are fractions of a millimeter wide. At low resolution their
   // edges step visibly, so this scene renders up to 2x, never drops below 1x and multisamples on every tier.
   // Draw only when something on screen changes. At rest that is the seconds hand, eight steps a second.
-  let dirty = true;
-  const stage = createStage(canvas, { tier, fov: 28, maxDpr: tier === 'low' ? 1.5 : 2, minDpr: 1, quickStart: true, shouldRender: () => { const d = dirty; dirty = false; return d; }, createRenderer: (c) => {
+  let dirty = true, active = true;
+  const stage = createStage(canvas, { tier, fov: 28, maxDpr: tier === 'low' ? 1.5 : 2, minDpr: 1, quickStart: true, shouldRender: () => { if (!active) return false; const d = dirty; dirty = false; return d; }, createRenderer: (c) => {
     const r = new THREE.WebGLRenderer({ canvas: c, antialias: true, alpha: true, powerPreference: 'high-performance' });
     r.toneMapping = THREE.ACESFilmicToneMapping;
     r.toneMappingExposure = intro ? 0 : 1.05;
@@ -405,6 +405,8 @@ export async function createOstrelScene(canvas, { tier, onReady, onFallback, red
   return {
     apply: touch(apply),
     setT: touch(setT),
+    // The canvas draws only while a 3D section is on screen.
+    setActive(on) { if (on && !active) dirty = true; active = on; },
     setConfigView(on) { configView = on; if (on) tTarget = 0; dirty = true; },
     setMacro(on) { macro = on; },
     setNight(v) { nightT = clamp(v); },

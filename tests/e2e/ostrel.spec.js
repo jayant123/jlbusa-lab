@@ -106,3 +106,43 @@ test.describe('OSTREL', () => {
   });
 });
 
+
+test('build cards show Shopify prices and preset the configurator', async ({ page }) => {
+  await mockShopify(page);
+  await page.goto('/ostrel/');
+  const grid = page.locator('#grid');
+  await expect(grid.locator('li')).toHaveCount(4);
+  await expect(grid.locator('[data-build-price="obsidian"]')).toHaveText('$6,400');
+  await expect(grid.locator('[data-build-price="champagne"]')).toHaveText('$4,800');
+  const glacier = await grid.locator('[data-build-price="glacier"]').textContent();
+  await grid.getByRole('button', { name: 'Start from Glacier' }).click();
+  await expect(page.locator('#options input[name="Dial"][value="Glacier"]')).toBeChecked();
+  await expect(page.locator('#options input[name="Strap"][value="Steel bracelet"]')).toBeChecked();
+  await expect(page.getByTestId('price')).toHaveText(glacier);
+});
+
+test('wrist check draws the watch on the wrist and warns on a small wrist', async ({ page }) => {
+  await mockShopify(page);
+  await page.goto('/ostrel/');
+  await page.getByLabel('Wrist size').fill('17');
+  await page.locator('#wrist').getByRole('button', { name: 'Check' }).click();
+  await expect(page.locator('#wrist-out')).toContainText('fits your wrist');
+  await expect(page.locator('#wrist-out svg')).toBeVisible();
+  await page.getByLabel('Wrist size').fill('13.5');
+  await page.locator('#wrist').getByRole('button', { name: 'Check' }).click();
+  await expect(page.locator('[data-fit="large"]')).toContainText('feel large');
+  await page.getByLabel('Wrist size').fill('3');
+  await page.locator('#wrist').getByRole('button', { name: 'Check' }).click();
+  await expect(page.locator('#wrist-out')).toContainText('Enter a wrist size');
+});
+
+test('the newsletter form says it is a demo and sends nothing', async ({ page }) => {
+  await mockShopify(page);
+  await page.goto('/ostrel/');
+  await page.getByLabel('Email address').fill('nope');
+  await page.getByRole('button', { name: 'Subscribe' }).click();
+  await expect(page.locator('#news-msg')).toHaveText('Please enter a valid email address.');
+  await page.getByLabel('Email address').fill('ana@example.com');
+  await page.getByRole('button', { name: 'Subscribe' }).click();
+  await expect(page.locator('#news-msg')).toContainText('demo store');
+});

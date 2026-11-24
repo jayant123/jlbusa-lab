@@ -72,5 +72,17 @@ export function createConfigurator({ form, priceEl, addBtn, summaryEl, statusEl,
       statusEl.querySelector('.o-retry').addEventListener('click', retry);
     },
     setLoading() { failed = false; product = null; render(); },
+    // Preset every group at once (from a build card). Unknown values are ignored.
+    setSelections(next) {
+      for (const o of OPTIONS) {
+        const v = next?.[o.name];
+        if (!o.values.includes(v)) continue;
+        sel[o.name] = v;
+        const r = form.querySelector(`input[name="${o.name}"][value="${v}"]`);
+        if (r) r.checked = true;
+      }
+      render();
+      onChange?.({ ...sel });
+    },
   };
 }

@@ -254,7 +254,7 @@ def bracelet(name, sign, m, segs):
         for x0, x1, mat in [(-w, -w * 0.34, m['bracelet']), (-w * 0.32, w * 0.32, m['bezel']), (w * 0.34, w, m['bracelet'])]:
             o = C.extrude_poly(f'{name}_l{i}_{x0:.4f}', [(x0, sign * y0), (x1, sign * y0), (x1, sign * y1), (x0, sign * y1)][::1 if sign > 0 else -1],
                                z - 0.0018, z + 0.0018, mat)
-            C.bevel(o, 0.00045, 2)
+            C.bevel(o, 0.0008, 4)  # rounded link edges, as on a finished bracelet
             links.append(o)
     return C.join(name, links)
 

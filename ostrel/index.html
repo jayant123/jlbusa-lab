@@ -5,41 +5,53 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex">
 <title>OSTREL Meridian 40 | Concept store by JLB USA</title>
-<meta name="description" content="OSTREL is a fictional watchmaker. This concept store by JLB USA shows a 3D product experience on a live Shopify catalog and cart.">
+<meta name="description" content="OSTREL is a fictional watchmaker. This concept store by JLB USA sells one automatic watch with a live 3D configurator on a real Shopify catalog and cart.">
 <meta name="theme-color" content="#0a0b0c">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 <noscript><link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet"></noscript>
-<link rel="preload" as="image" href="/ostrel/stills/hero.webp" fetchpriority="high">
-<script>(function(d){d.classList.add('js');try{if(!navigator.webdriver&&!matchMedia('(prefers-reduced-motion: reduce)').matches&&!sessionStorage.getItem('ostrel.intro')){d.classList.add('intro-on');sessionStorage.setItem('ostrel.intro','1')}}catch(e){}})(document.documentElement)</script>
+<link rel="preload" as="image" href="/ostrel/stills/hero-photo.webp" fetchpriority="high">
+<script>document.documentElement.classList.add('js')</script>
 <link rel="stylesheet" href="/src/kit/kit.css">
 <link rel="stylesheet" href="/src/ostrel/style.css">
 </head>
 <body data-scrub="on" data-explode="0">
-<div class="o-intro" aria-hidden="true"><span class="o-intro-mark">OSTREL</span><span class="o-intro-sub">Meridian 40</span><span class="o-intro-bar"><i></i></span></div>
+<p class="o-announce">Free insured shipping in the US. Every watch comes with five years of service cover.</p>
 <header class="o-top">
-  <a class="o-mark" href="#top" aria-label="OSTREL, back to top">OSTREL</a>
-  <nav class="o-nav" aria-label="Sections"><a href="#craft">Craft</a><a href="#configure">Configure</a></nav>
+  <a class="o-mark" href="#top" aria-label="OSTREL home">OSTREL</a>
+  <nav class="o-nav" aria-label="Main"><a href="#builds">Watches</a><a href="#craft">Inside</a><a href="#configure">Configure</a><a href="#service">Service</a><a href="#journal">Journal</a></nav>
+  <details class="o-menu">
+    <summary>Menu</summary>
+    <nav aria-label="Menu"><a href="#builds">Watches</a><a href="#craft">Inside</a><a href="#configure">Configure</a><a href="#service">Service</a><a href="#journal">Journal</a><a href="#faq">Help</a></nav>
+  </details>
   <span class="o-concept">Concept by JLB USA</span>
 </header>
 
 <div class="o-stage" aria-hidden="true">
-  <img class="o-poster ostrel-still" src="/ostrel/stills/hero.webp" alt="" width="1600" height="1000" fetchpriority="high">
+  <img class="o-poster ostrel-still" src="/ostrel/stills/hero.webp" alt="" width="1600" height="1000" loading="lazy">
   <canvas id="gl"></canvas>
 </div>
 <div class="o-labels" aria-hidden="true"><svg class="o-leaders"></svg></div>
 
 <main id="top">
   <section class="o-hero">
+    <img class="o-hero-photo" src="/ostrel/stills/hero-photo.webp" alt="The OSTREL Meridian 40 with an obsidian dial and a brushed platinum case on black calf." width="2400" height="1500" fetchpriority="high">
     <div class="o-hero-copy">
-    <p class="o-eyebrow">Meridian 40 · Automatic · Concept</p>
-    <h1>Take the Meridian 40 apart in your hands</h1>
-    <p class="o-lede">A forty-millimeter automatic with an open caseback. Scroll to take it apart piece by piece. It ends at the beating balance wheel. Then build your own in the configurator below.</p>
-    <div class="o-hero-foot"><a class="o-down" href="#craft">Begin</a><span class="o-hint">Drag to turn the watch</span></div>
+      <p class="o-eyebrow">Meridian 40 · Automatic</p>
+      <h1>One watch made with care</h1>
+      <p class="o-lede">The Meridian 40 is a 40 mm automatic. A sapphire window in the back shows the movement at work. Choose the dial, the case and the strap. We build it to order.</p>
+      <div class="o-ctas"><a class="o-btn" href="#builds">Shop the Meridian 40</a><a class="o-btn o-btn-ghost" href="#craft">See inside</a></div>
     </div>
   </section>
 
-  <section class="o-track" id="craft" aria-label="How the watch is built">
+  <section class="o-builds o-light" id="builds" aria-labelledby="builds-title">
+    <div class="o-wrap">
+      <div class="o-head"><h2 id="builds-title">Four ways to wear it</h2><p>Start from one of these. Then change any part in the configurator.</p></div>
+      <ul class="o-grid" id="grid"></ul>
+    </div>
+  </section>
+
+  <section class="o-track" id="craft" aria-label="How the watch is built" data-3d>
     <article class="o-chapter">
       <p class="o-num">01</p>
       <h2>The domed sapphire lifts clear</h2>
@@ -65,17 +77,16 @@
     </div>
   </section>
 
-  <section class="o-night" id="night" aria-labelledby="night-title">
+  <section class="o-night" id="night" aria-labelledby="night-title" data-3d>
     <article class="o-chapter">
       <p class="o-num">04</p>
       <h2 id="night-title">After dark</h2>
       <p>The hands and hour markers are filled with lume. A few minutes of daylight charges them. Turn the lights down and they glow through the night.</p>
       <dl class="o-spec"><div><dt>Lume</dt><dd>Grade A green</dd></div><div><dt>Glow</dt><dd>Up to 8 hours</dd></div></dl>
-      <img class="o-chapter-still ostrel-still" src="/ostrel/stills/hero.webp" alt="The OSTREL Meridian 40 with an obsidian dial." loading="lazy" width="1600" height="1000">
     </article>
   </section>
 
-  <section class="o-back" id="caseback" aria-labelledby="back-title">
+  <section class="o-back" id="caseback" aria-labelledby="back-title" data-3d>
     <article class="o-chapter">
       <p class="o-num">05</p>
       <h2 id="back-title">Turn it over</h2>
@@ -84,10 +95,10 @@
     </article>
   </section>
 
-  <section class="o-config" id="configure" aria-labelledby="cfg-title">
+  <section class="o-config" id="configure" aria-labelledby="cfg-title" data-3d>
     <div class="o-config-copy">
     <h2 id="cfg-title">Configure your Meridian&nbsp;40</h2>
-    <p class="o-config-note">Every combination below is a real variant in this concept's Shopify store. Prices and availability come from Shopify.</p>
+    <p class="o-config-note">Every combination below is a real variant in this concept's Shopify store. Prices and stock come from Shopify.</p>
     <form class="o-options" id="options" onsubmit="return false"></form>
     <div class="o-engrave">
       <label for="engrave">Engraving</label>
@@ -95,6 +106,63 @@
       <p class="o-engrave-help" id="engrave-help"><span id="engrave-count">0 of 14 characters.</span> <span class="o-engrave-where">Engraved on the caseback.</span></p>
     </div>
     <p class="o-status" id="status" role="status" aria-live="polite"></p>
+    </div>
+  </section>
+
+  <section class="o-fit o-light" id="fit" aria-labelledby="fit-title">
+    <div class="o-wrap o-split">
+      <div>
+        <p class="o-num">Size check</p>
+        <h2 id="fit-title">Will it fit your wrist?</h2>
+        <p>The case is 40 mm across. The lugs are 47 mm from tip to tip. A watch looks right when the lugs stay on the flat top of the wrist.</p>
+        <form class="o-wrist" id="wrist" novalidate>
+            <p class="o-wrist-help">Wrap a strip of paper around your wrist where you wear a watch. Measure the paper.</p>
+      <div class="o-wrist-row">
+        <label for="wrist-size">Wrist size</label>
+        <input id="wrist-size" type="number" inputmode="decimal" step="0.1" min="4" max="26" placeholder="16.5">
+        <select id="wrist-unit" aria-label="Unit"><option value="cm">cm</option><option value="in">in</option></select>
+        <button type="submit" class="o-step">Check</button>
+      </div>
+      <div class="o-wrist-out" id="wrist-out" aria-live="polite"></div>
+    </form>
+      </div>
+    </div>
+  </section>
+
+  <section class="o-inside" id="inside" aria-labelledby="inside-title">
+    <div class="o-wrap o-split">
+      <img src="/ostrel/stills/movement-photo.webp" alt="The Meridian 40 movement with the dial removed: gold wheels, the balance and the rhodium bridges." loading="lazy" width="1200" height="900">
+      <div>
+        <p class="o-num">The movement</p>
+        <h2 id="inside-title">A movement you can service for decades</h2>
+        <p>The Meridian 40 runs on a self-winding movement with 25 jewels. It beats four times a second. A full wind keeps it running for about three days off the wrist.</p>
+        <p>The bridges carry Côtes de Genève stripes. The main plate is finished with small overlapping circles. Nobody sees these from the front. We do them anyway.</p>
+        <ul class="o-facts"><li><strong>25</strong> jewels</li><li><strong>70 h</strong> power reserve</li><li><strong>28,800</strong> beats an hour</li></ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="o-story o-light" aria-labelledby="story-title">
+    <div class="o-wrap o-split">
+      <div>
+        <p class="o-num">Our story</p>
+        <h2 id="story-title">Why we make only one watch</h2>
+        <p>OSTREL started with a simple idea. Make one watch and keep making it better. No new model every spring. No limited editions.</p>
+        <p>The Meridian 40 is the watch we wanted to wear every day. It is thin enough for a shirt cuff. It is tough enough for a weekend outside. The dial is easy to read at a glance.</p>
+        <p>Each watch is assembled and regulated by hand in small batches. It is tested for a week before it ships.</p>
+      </div>
+      <img src="/ostrel/stills/caseback-photo.webp" alt="The Meridian 40 Champagne on cognac calf." loading="lazy" width="1200" height="900">
+    </div>
+  </section>
+
+  <section class="o-service" id="service" aria-labelledby="service-title">
+    <div class="o-wrap">
+      <div class="o-head"><h2 id="service-title">Service and warranty</h2><p>Plain terms. No fine print.</p></div>
+      <ul class="o-cards">
+        <li><h3>Five years of cover</h3><p>We repair the watch at no cost when a part fails from a fault in how we made it. This covers the movement, the case and the crystal. Straps and normal wear are not included.</p></li>
+        <li><h3>A full service every five to seven years</h3><p>We take the movement apart, clean it, oil it and regulate it. A service costs a flat fee and takes about three weeks. Shipping both ways is on us.</p></li>
+        <li><h3>Straps you can change yourself</h3><p>Every strap has quick-release pins. Swap a calf strap for the bracelet in under a minute. No tools needed.</p></li>
+      </ul>
     </div>
   </section>
 
@@ -117,9 +185,66 @@
       <p><strong>Delivery</strong> Ships in 3 to 5 business days.</p>
       <p><strong>Returns</strong> Thirty days for any reason.</p>
     </div>
-    <p class="o-bigmark" aria-hidden="true">OSTREL</p>
+  </section>
+
+  <section class="o-reviews o-light" aria-labelledby="rev-title">
+    <div class="o-wrap">
+      <div class="o-head"><h2 id="rev-title">What owners say</h2><p class="o-small">Sample reviews. OSTREL is a concept brand.</p></div>
+      <ul class="o-rev">
+        <li><p class="o-stars" aria-label="5 out of 5 stars">★★★★★</p><blockquote>I have worn the Obsidian every day for a year. It keeps time within a few seconds a day.</blockquote><p class="o-who">Marcus T. · Obsidian</p></li>
+        <li><p class="o-stars" aria-label="5 out of 5 stars">★★★★★</p><blockquote>The champagne dial looks different in every light. People notice it at dinner.</blockquote><p class="o-who">Elena V. · Champagne</p></li>
+        <li><p class="o-stars" aria-label="4 out of 5 stars">★★★★☆</p><blockquote>Great watch on a small wrist. I used the wrist check before I ordered and it was right.</blockquote><p class="o-who">Sam R. · Noir</p></li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="o-journal" id="journal" aria-labelledby="jr-title">
+    <div class="o-wrap">
+      <div class="o-head"><h2 id="jr-title">From the journal</h2><p>Short notes on owning a mechanical watch.</p></div>
+      <ul class="o-posts">
+        <li><img src="/ostrel/stills/journal-1.webp" alt="" loading="lazy" width="1200" height="900"><h3>How to wind an automatic watch</h3><p>Your wrist does most of the work. A few turns of the crown help on the first day.</p>
+          <details><summary>Read more</summary><p>Give the crown about thirty turns when the watch has stopped. That starts it with a good reserve. After that, normal wear keeps it wound. Leave it on a shelf for more than three days and it will stop again. Wind it and set the time.</p></details></li>
+        <li><img src="/ostrel/stills/journal-2.webp" alt="" loading="lazy" width="1200" height="900"><h3>Why a watch gains or loses time</h3><p>A mechanical watch is never perfect. A few seconds a day is normal.</p>
+          <details><summary>Read more</summary><p>Temperature, position and how much the spring is wound all change the rate. Leave the watch crown up overnight and it often slows a little. Crown down speeds it up. You can use this to nudge it back on time.</p></details></li>
+        <li><img src="/ostrel/stills/journal-3.webp" alt="" loading="lazy" width="1200" height="900"><h3>Leather or steel?</h3><p>Leather feels warm and light. Steel shrugs off water and sweat.</p>
+          <details><summary>Read more</summary><p>Calf leather softens over the first month. It is the more comfortable choice for an office. The steel bracelet suits summer and travel. Many owners buy both and swap with the quick-release pins.</p></details></li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="o-faq o-light" id="faq" aria-labelledby="faq-title">
+    <div class="o-wrap o-narrow">
+      <h2 id="faq-title">Questions</h2>
+      <details><summary>How accurate is the Meridian 40?</summary><p>We regulate each watch to within about five seconds a day. It is tested in five positions before it ships.</p></details>
+      <details><summary>Can I swim with it?</summary><p>Yes. It is water resistant to 100 m. Keep the crown pushed in. Rinse it in fresh water after the sea.</p></details>
+      <details><summary>How long does an order take?</summary><p>Stock builds ship in 3 to 5 business days. Engraved watches take about a week longer.</p></details>
+      <details><summary>Can I return an engraved watch?</summary><p>Engraved watches can't be returned. Every other order can come back within thirty days.</p></details>
+      <details><summary>Will it fit a small wrist?</summary><p>Use the wrist check in the configurator. The lugs are 47 mm from tip to tip. That suits most wrists from about 15 cm.</p></details>
+    </div>
+  </section>
+
+  <section class="o-news" aria-labelledby="news-title">
+    <div class="o-wrap o-narrow">
+      <h2 id="news-title">Letters from the workshop</h2>
+      <p>One email a month. You hear about new batches and journal posts first.</p>
+      <form class="o-news-form" id="news-form" novalidate>
+        <label for="news-email">Email address</label>
+        <div><input id="news-email" type="email" autocomplete="email" required placeholder="you@example.com"><button type="submit" class="o-btn">Subscribe</button></div>
+        <p class="o-news-msg" id="news-msg" role="status" aria-live="polite"></p>
+      </form>
+    </div>
   </section>
 </main>
+
+<footer class="o-foot">
+  <div class="o-wrap o-foot-cols">
+    <div><p class="o-mark">OSTREL</p><p>One watch made with care.</p><p>(404) 555-0127</p></div>
+    <div><h3>Shop</h3><a href="#builds">The Meridian 40</a><a href="#configure">Configure</a></div>
+    <div><h3>Help</h3><a href="#service">Service</a><a href="#faq">Questions</a></div>
+    <div><h3>About</h3><a href="#inside">The movement</a><a href="#journal">Journal</a></div>
+  </div>
+  <p class="concept-foot">Concept by JLB USA. Fictional brand. Products and prices are demo data. <a href="https://jlbusa.com/">jlbusa.com</a></p>
+</footer>
 
 <div class="o-bar" role="region" aria-label="Purchase">
   <div class="o-bar-item"><span class="o-bar-name">Meridian 40</span><span class="o-bar-sel" id="summary"></span></div>
@@ -128,8 +253,6 @@
   <button type="button" class="o-checkout" id="checkout">Checkout (0)</button>
 </div>
 <div id="panel-root"></div>
-
-<footer class="concept-foot">Concept by JLB USA. Fictional brand. Products and prices are demo data. <a href="https://jlbusa.com/">jlbusa.com</a></footer>
 <script type="module" src="/src/ostrel/main.js"></script>
 </body>
 </html>

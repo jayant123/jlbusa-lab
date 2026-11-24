@@ -9,6 +9,9 @@ import { prefersReducedMotion } from '../kit/env.js';
 import { track } from '../kit/track.js';
 import { createConfigurator } from './configurator.js';
 import { cleanEngraving, engravingAttrs, MAX_ENGRAVING } from './engraving.js';
+import { BUILDS } from './builds.js';
+import { wristFit, LUG_TO_LUG, CASE_MM } from './wrist.js';
+import { resolveVariant, variantState } from '../kit/catalog.js';
 
 const $ = (s) => document.querySelector(s);
 const html = document.documentElement;
@@ -35,15 +38,70 @@ const cfg = createConfigurator({
 });
 prevSel = cfg.selections();
 
+let product = null;
+const money = (n, c = 'USD') => new Intl.NumberFormat('en-US', { style: 'currency', currency: c, maximumFractionDigits: 0 }).format(n);
 async function loadProduct() {
   cfg.setLoading();
   try {
-    cfg.setProduct(await fetchProduct(sf, config.handle));
+    product = await fetchProduct(sf, config.handle);
+    cfg.setProduct(product);
   } catch {
     cfg.setFailed(loadProduct);
   }
+  renderBuilds();
 }
+
+// --- Builds: four starting points, each a real variant ---------------------------
+$('#grid').innerHTML = BUILDS.map((b) => `<li class="o-card" data-build="${b.key}">
+  <img src="/ostrel/stills/build-${b.key}.webp" alt="The Meridian 40 ${b.name}. ${b.line}." loading="lazy" width="800" height="1000">
+  <h3>${b.name}</h3><p class="o-card-line">${b.line}</p><p class="o-card-price" data-build-price="${b.key}"></p>
+  <button type="button" class="o-card-btn" data-start="${b.key}">Start from ${b.name}</button></li>`).join('');
+function renderBuilds() {
+  for (const b of BUILDS) {
+    const v = product ? resolveVariant(product, b.sel) : null;
+    const st = variantState(v);
+    $(`[data-build-price="${b.key}"]`).textContent = v ? (st === 'available' ? money(v.price, v.currencyCode) : 'Sold out in the demo store') : '';
+  }
+}
+$('#grid').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-start]');
+  if (!btn) return;
+  const b = BUILDS.find((x) => x.key === btn.dataset.start);
+  cfg.setSelections(b.sel);
+  track('build_start', { build: b.name });
+  $('#configure').scrollIntoView({ behavior: reduced ? 'auto' : 'smooth' });
+});
 loadProduct();
+
+// --- Wrist check: a scale drawing of the watch on a wrist ---------------------------
+function wristSvg(r) {
+  // The forearm runs left to right. Its flat top is the band height. The lugs reach across it, top to bottom.
+  const k = 2.6, W = 320, H = 200, cy = H / 2, cx = W / 2, top = r.top * k, lug = LUG_TO_LUG * k, cs = CASE_MM * k;
+  const over = r.fit === 'large';
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Scale drawing: ${Math.round(r.top)} mm wrist top and ${LUG_TO_LUG} mm lugs">
+    <rect x="0" y="${cy - top / 2}" width="${W}" height="${top}" rx="${top / 2.4}" class="wr"/>
+    <rect x="${cx - 9 * k}" y="${cy - lug / 2}" width="${18 * k}" height="${lug}" rx="5" class="lg${over ? ' over' : ''}"/>
+    <circle cx="${cx}" cy="${cy}" r="${cs / 2}" class="cs"/>
+    <line x1="${W - 18}" x2="${W - 18}" y1="${cy - top / 2}" y2="${cy + top / 2}" class="dm"/>
+    <text x="${W - 26}" y="${cy + 4}" class="tx" text-anchor="end">${Math.round(r.top)} mm</text></svg>`;
+}
+$('#wrist').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const r = wristFit($('#wrist-size').value, $('#wrist-unit').value);
+  const out = $('#wrist-out');
+  if (!r) { out.innerHTML = '<p class="o-wrist-msg">Enter a wrist size between 12 and 26 cm or 4.7 and 10 in.</p>'; return; }
+  out.innerHTML = `${wristSvg(r)}<p class="o-wrist-msg" data-fit="${r.fit}">${r.message}</p>`;
+  track('wrist_check', { fit: r.fit });
+});
+
+// --- Newsletter: a demo. Nothing is sent anywhere. -------------------------------------
+$('#news-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const input = $('#news-email'), msg = $('#news-msg');
+  if (!input.checkValidity() || !input.value) { msg.textContent = 'Please enter a valid email address.'; input.focus(); return; }
+  msg.textContent = 'Thank you. This is a demo store. We did not save your email.';
+  input.value = '';
+});
 
 // Engraving: cleaned as you type, drawn on the 3D caseback and sent to Shopify with the cart line.
 const engrave = $('#engrave'), engraveCount = $('#engrave-count');
@@ -100,7 +158,7 @@ document.querySelectorAll('.o-step').forEach((b) => b.addEventListener('click', 
 // Headings and chapters rise into place as they arrive.
 if ('IntersectionObserver' in window && !reduced) {
   const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('is-in'); io.unobserve(e.target); } }), { rootMargin: '0px 0px -12% 0px' });
-  document.querySelectorAll('.o-chapter, .o-config h2, .o-specs h2, .o-sheet, .o-deliver, .o-bigmark').forEach((el) => { el.classList.add('rise'); io.observe(el); });
+  document.querySelectorAll('.o-chapter, .o-config h2, .o-specs h2, .o-sheet, .o-deliver').forEach((el) => { el.classList.add('rise'); io.observe(el); });
 }
 
 // --- Opening sequence -------------------------------------------------------
@@ -183,6 +241,7 @@ async function start3d() {
     scene.setT(explodeT);
     if (!introEnded) { endIntro(); scene.playIntro(); }
     requestAnimationFrame(drawLabels);
+    watch3d();
     await scrollDrive();
   } catch {
     fallback();
@@ -222,6 +281,25 @@ async function scrollDrive() {
   direct();
 }
 
-const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 200));
-if (document.readyState === 'complete') idle(start3d);
-else window.addEventListener('load', () => idle(start3d));
+// The canvas draws only while a 3D section is on screen.
+function watch3d() {
+  const seen = new Set();
+  const io = new IntersectionObserver((entries) => {
+    for (const en of entries) en.isIntersecting ? seen.add(en.target) : seen.delete(en.target);
+    scene.setActive(seen.size > 0);
+  });
+  document.querySelectorAll('[data-3d]').forEach((el) => io.observe(el));
+}
+
+// The watch model is heavy to set up. The hero is a photo, so 3D waits for the visitor's first move
+// (scroll, touch, pointer or key). ?gl starts it straight away (tests and stills).
+let started = false;
+const WAKE = ['pointermove', 'pointerdown', 'touchstart', 'wheel', 'scroll', 'keydown'];
+const kick = () => {
+  if (started) return;
+  started = true;
+  WAKE.forEach((ev) => window.removeEventListener(ev, kick, true));
+  (window.requestIdleCallback || ((fn) => setTimeout(fn, 1)))(start3d, { timeout: 300 });
+};
+if (!navigator.webdriver) WAKE.forEach((ev) => window.addEventListener(ev, kick, { capture: true, passive: true }));
+if (/[?&]gl\b/.test(location.search)) window.addEventListener('load', kick);
