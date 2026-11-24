@@ -10,6 +10,7 @@ import math
 import os
 import sys
 
+import bmesh
 import bpy
 from mathutils import Vector
 
@@ -63,7 +64,7 @@ def velvet():
     return m
 
 
-def set_and_lights(spread=0.12, sparks=True):
+def set_and_lights(spread=0.12, sparks=True, dim=1.0):
     # A seamless sweep of velvet: floor curving up into a back wall.
     bpy.ops.mesh.primitive_plane_add(size=1, location=(0, 0, 0))
     floor = bpy.context.object
@@ -98,14 +99,14 @@ def set_and_lights(spread=0.12, sparks=True):
         bpy.context.collection.objects.link(o)
         return o
 
-    area('key', (-0.22, -0.28, 0.3), 0.3, 4, (1.0, 0.97, 0.94))
+    area('key', (-0.22, -0.28, 0.3), 0.3, 4 * dim, (1.0, 0.97, 0.94))
     area('fill', (0.3, -0.2, 0.12), 0.3, 0.8, (0.85, 0.9, 1.0))
     area('stripL', (-0.18, 0.02, 0.08), 0.02, 2.5, sy=0.3)
     area('stripR', (0.18, 0.04, 0.08), 0.02, 2.5, sy=0.3)
-    area('top', (0, 0.02, 0.35), 0.25, 1.2)
+    area('top', (0, 0.02, 0.35), 0.25, 1.2 * dim)
     # A ring of small bright lights for fire in the stones.
     if not sparks:
-        area('soft', (0.0, -0.25, 0.2), 0.4, 3, (0.9, 0.93, 1.0))
+        area('soft', (0.0, -0.25, 0.2), 0.4, 3 * dim, (0.9, 0.93, 1.0))
     for i in range(12 if sparks else 0):
         a = (i / 12) * math.tau
         area(f'spark{i}', (math.cos(a) * 0.16, math.sin(a) * 0.16 - 0.04, 0.14 + 0.05 * (i % 3)), 0.006, 0.6 + 0.3 * (i % 2))
@@ -185,16 +186,36 @@ def build_hoops(metal, loc=(0, 0, 0), size='Small'):
 
 
 # --- Extra scenes ------------------------------------------------------------------------------------------------
-def wood():
-    """Dark walnut with a fine grain in the bump only, so the color stays rich under strong light."""
-    m = principled('walnut', color=(0.045, 0.022, 0.011), rough=0.5)
+def wood(light=False):
+    """Walnut: long dark grain lines stretched along X, with fine pores in the bump."""
+    m = principled('walnut', color=(0.1, 0.05, 0.025), rough=0.42)
     nt = m.node_tree
+    tc = nt.nodes.new('ShaderNodeTexCoord')
+    mp = nt.nodes.new('ShaderNodeMapping')
+    mp.inputs['Scale'].default_value = (4, 70, 70)  # grain runs along X
+    noise = nt.nodes.new('ShaderNodeTexNoise')
+    noise.inputs['Scale'].default_value = 3.0
+    noise.inputs['Detail'].default_value = 8
+    noise.inputs['Distortion'].default_value = 1.5
     wave = nt.nodes.new('ShaderNodeTexWave')
-    wave.inputs['Scale'].default_value = 400
-    wave.inputs['Distortion'].default_value = 8
-    bump = nt.nodes.new('ShaderNodeBump')
-    bump.inputs['Strength'].default_value = 0.15
-    nt.links.new(wave.outputs['Fac'], bump.inputs['Height'])
+    wave.wave_type = 'BANDS'
+    wave.inputs['Scale'].default_value = 1.4
+    wave.inputs['Distortion'].default_value = 9
+    wave.inputs['Detail'].default_value = 6
+    ramp = nt.nodes.new('ShaderNodeValToRGB')
+    lo, hi = ((0.11, 0.06, 0.03), (0.3, 0.17, 0.08)) if light else ((0.035, 0.017, 0.008), (0.16, 0.085, 0.04))
+    ramp.color_ramp.elements[0].color = (*lo, 1)
+    ramp.color_ramp.elements[1].color = (*hi, 1)
+    nt.links.new(tc.outputs['Object'], mp.inputs['Vector'])
+    nt.links.new(mp.outputs['Vector'], wave.inputs['Vector'])
+    nt.links.new(mp.outputs['Vector'], noise.inputs['Vector'])
+    mix = nt.nodes.new('ShaderNodeMath'); mix.operation = 'MULTIPLY'
+    nt.links.new(wave.outputs['Fac'], mix.inputs[0]); nt.links.new(noise.outputs['Fac'], mix.inputs[1])
+    nt.links.new(mix.outputs[0], ramp.inputs['Fac'])
+    nt.links.new(ramp.outputs['Color'], nt.nodes['Principled BSDF'].inputs['Base Color'])
+    pores = nt.nodes.new('ShaderNodeTexNoise'); pores.inputs['Scale'].default_value = 900
+    bump = nt.nodes.new('ShaderNodeBump'); bump.inputs['Strength'].default_value = 0.08
+    nt.links.new(pores.outputs['Fac'], bump.inputs['Height'])
     nt.links.new(bump.outputs['Normal'], nt.nodes['Principled BSDF'].inputs['Normal'])
     return m
 
@@ -222,48 +243,86 @@ def cyl(name, r, depth, loc, mat, rot=(0, 0, 0), verts=64, bev=0.0):
 
 
 def workshop_scene():
-    """A jeweler's bench: oak top, the ring held in a wooden ring clamp, a loupe, two needle files and a green wax carving."""
-    oak = wood()
-    bench = box('bench', (0.5, 0.3, 0.03), (0, 0.04, -0.015), oak, bev=0.002)
-    steel = principled('steel', color=(0.62, 0.63, 0.65), metal=1.0, rough=0.28)
-    black = principled('black', color=(0.015, 0.015, 0.017), rough=0.35)
-    leather = principled('leather', color=(0.25, 0.13, 0.07), rough=0.7)
+    """A jeweler's bench seen low across its edge: a walnut bench pin with its V cut, clamped to the bench by a steel
+    anchor, the ring resting on the pin, a steel ring mandrel, two needle files and a loupe lying flat."""
+    bench_m = wood()
+    pin_m = wood(light=True)
+    steel = principled('steel', color=(0.6, 0.61, 0.63), metal=1.0, rough=0.22)
+    black = principled('black', color=(0.02, 0.02, 0.022), rough=0.4)
     lens = principled('lens', color=(1, 1, 1), trans=1.0, ior=1.52, rough=0.0)
-    wax = principled('wax', color=(0.12, 0.38, 0.22), rough=0.45)
-    # Ring clamp: two tapered wooden jaws with leather faces, held shut by a wedge. The ring sits in its mouth.
-    for side in (-1, 1):
-        j = box(f'jaw{side}', (0.011, 0.012, 0.11), (side * 0.0062, 0, 0.055), oak, rot=(0, math.radians(side * -3), 0), bev=0.0015)
-        box(f'pad{side}', (0.0012, 0.0115, 0.02), (side * 0.0004, 0, 0.1), leather, rot=(0, math.radians(side * -3), 0), bev=0.0003)
-    box('wedge', (0.006, 0.013, 0.03), (0, 0, 0.012), oak, bev=0.001)
+    # Bench top: its front edge runs along X at y = 0. It sits on the velvet sweep, which reads as the dark room.
+    box('bench', (0.5, 0.3, 0.035), (0, 0.15, 0.0175), bench_m, bev=0.002)
+    z = 0.035
+    # Bench pin: a tapered walnut wedge pushed out over the edge, sloping down, with a V cut in its nose.
+    bm = bmesh.new()
+    pts = [(-0.025, -0.035, 0.0), (0.025, -0.035, 0.0), (0.03, 0.06, 0.0), (-0.03, 0.06, 0.0)]
+    bot = [bm.verts.new((x, y, zz)) for x, y, zz in pts]
+    top = [bm.verts.new((x, y, 0.009 if y < 0 else 0.016)) for x, y, _ in pts]
+    bm.faces.new(bot[::-1]); bm.faces.new(top)
+    for i in range(4):
+        bm.faces.new((bot[i], bot[(i + 1) % 4], top[(i + 1) % 4], top[i]))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    pin = C.obj_from_bmesh('pin', bm, pin_m, smooth=False)
+    C.bevel(pin, 0.0012, 3)
+    pin.location = (0, 0, z)
+    # V cut: subtract a wedge from the nose.
+    bpy.ops.mesh.primitive_cone_add(vertices=3, radius1=0.02, depth=0.05, location=(0, -0.042, z + 0.008), rotation=(0, 0, math.radians(90)))
+    cut = bpy.context.object
+    cut.hide_render = True
+    mod = pin.modifiers.new('V', 'BOOLEAN'); mod.object = cut; mod.operation = 'DIFFERENCE'
+    # Steel anchor clamped over the pin's back end.
+    box('anchor', (0.07, 0.016, 0.006), (0, 0.045, z + 0.019), steel, bev=0.0012)
+    for x in (-0.03, 0.03):
+        cyl(f'screw{x}', 0.0035, 0.012, (x, 0.045, z + 0.024), steel, bev=0.0006)
+    # The ring rests on the pin, tilted, stone up.
     ring = build_ring('Yellow gold', 'Diamond', (0, 0, 0), 0)
-    ring.location = (0, 0, 0.108)
-    ring.rotation_euler = (0, 0, math.radians(90))
-    # Loupe: a black barrel with a glass lens, lying on its side.
-    cyl('loupe', 0.011, 0.016, (0.05, -0.03, 0.011), black, rot=(math.radians(90), 0, math.radians(30)), bev=0.0008)
-    cyl('loupe_lens', 0.0092, 0.004, (0.0455, -0.0222, 0.011), lens, rot=(math.radians(90), 0, math.radians(30)))
-    # Needle files: a fine steel blade with a round handle.
-    for k, (x, ang) in enumerate([(-0.045, 14), (-0.06, 22)]):
-        cyl(f'file{k}', 0.0013, 0.07, (x, -0.01 - k * 0.01, 0.0014), steel, rot=(0, math.radians(90), math.radians(ang)), verts=6)
-        cyl(f'handle{k}', 0.0032, 0.03, (x - 0.047 * math.cos(math.radians(ang)), -0.01 - k * 0.01 - 0.047 * math.sin(math.radians(ang)), 0.0032), black, rot=(0, math.radians(90), math.radians(ang)), bev=0.0006)
-    # Wax carving: a green ring blank and a few shavings.
-    bpy.ops.mesh.primitive_torus_add(major_radius=0.0102, minor_radius=0.0021, major_segments=96, minor_segments=24, location=(0.022, 0.035, 0.0021))
-    w = bpy.context.object; w.data.materials.append(wax); bpy.ops.object.shade_smooth()
-    for k in range(5):
-        cyl(f'shaving{k}', 0.0012, 0.0002, (0.035 + k * 0.004, 0.022 - k * 0.002, 0.0002), wax, rot=(0.2, 0.3, k), verts=12)
-    camera((0.1, -0.19, 0.155), (0.004, 0.0, 0.07), 50, 7.0)
+    ring.location = (0.006, -0.012, z + 0.0108 + J.RING_R + J.BAND_T - 0.0004)  # band resting on the pin top
+    ring.rotation_euler = (math.radians(8), 0, math.radians(28))
+    # Ring mandrel: a long tapered steel rod with a walnut handle, lying on the bench.
+    cone_r0, cone_r1 = 0.0115, 0.0065
+    bpy.ops.mesh.primitive_cone_add(vertices=96, radius1=cone_r0, radius2=cone_r1, depth=0.26, location=(-0.07, 0.12, z + cone_r0), rotation=(0, math.radians(90), math.radians(12)))
+    mand = bpy.context.object; mand.data.materials.append(steel); bpy.ops.object.shade_smooth()
+    cyl('mand_handle', 0.014, 0.09, (-0.07 - 0.17 * math.cos(math.radians(12)), 0.12 - 0.17 * math.sin(math.radians(12)), z + 0.014), pin_m, rot=(0, math.radians(90), math.radians(12)), bev=0.002)
+    # Needle files lying flat.
+    for k, (x, y, ang) in enumerate([(0.07, 0.02, -18), (0.085, 0.035, -10)]):
+        cyl(f'file{k}', 0.0013, 0.075, (x, y, z + 0.0014), steel, rot=(0, math.radians(90), math.radians(ang)), verts=6)
+        hx = x + 0.052 * math.cos(math.radians(ang)); hy = y + 0.052 * math.sin(math.radians(ang))
+        cyl(f'handle{k}', 0.0032, 0.03, (hx, hy, z + 0.0032), black, rot=(0, math.radians(90), math.radians(ang)), bev=0.0006)
+    # A loupe lying flat: black barrel and glass.
+    cyl('loupe', 0.012, 0.014, (-0.06, 0.03, z + 0.007), black, bev=0.0008)
+    cyl('loupe_lens', 0.0095, 0.0145, (-0.06, 0.03, z + 0.0072), lens)
+    # Warm low raking light from the left. Dim fill from the front.
+    sun = bpy.data.lights.new('rake', 'AREA'); sun.size = 0.12; sun.energy = 9; sun.color = (1.0, 0.78, 0.52)
+    so = bpy.data.objects.new('rake', sun); so.location = (-0.35, -0.05, z + 0.06)
+    so.rotation_euler = (Vector((0, 0.03, z)) - Vector(so.location)).to_track_quat('-Z', 'Y').to_euler()
+    so.visible_camera = False
+    bpy.context.collection.objects.link(so)
+    camera((0.05, -0.135, z + 0.05), (0.006, -0.012, z + 0.022), 60, 10.0)
 
 
 def dish_scene():
-    """The ring soaking in a small ceramic dish of water."""
-    ceramic = principled('ceramic', color=(0.035, 0.04, 0.05), rough=0.22)
-    water = principled('water', color=(1, 1, 1), trans=1.0, ior=1.33, rough=0.0)
-    bowl = J.revolve_closed('dish', [(0.03, 0.0), (0.034, 0.0006), (0.036, 0.012), (0.0335, 0.0125), (0.0315, 0.0025), (0.0, 0.0022)], 128, ceramic)
+    """The ring in a small dark ceramic dish, a soft polishing cloth folded beside it."""
+    ceramic = principled('ceramic', color=(0.0022, 0.0024, 0.003), rough=0.35)
+    bowl = J.revolve_closed('dish', [(0.0, 0.0), (0.03, 0.0), (0.034, 0.0008), (0.037, 0.009), (0.036, 0.0098), (0.0335, 0.0094),
+                                     (0.031, 0.0032), (0.0, 0.0028)], 160, ceramic)
     bowl.rotation_euler = (math.radians(90), 0, 0)
     bpy.ops.object.shade_smooth()
+    # Polishing cloth: a soft grey-beige square with gentle folds, beside the dish.
+    cloth = principled('cloth', color=(0.045, 0.036, 0.028), rough=1.0, sheen=0.3, sheen_tint=(0.8, 0.75, 0.7), sheen_rough=0.5, spec=0.1)
+    bpy.ops.mesh.primitive_plane_add(size=0.08, location=(0.088, 0.03, 0.0))
+    cl = bpy.context.object
+    bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.subdivide(number_cuts=60); bpy.ops.object.mode_set(mode='OBJECT')
+    for v in cl.data.vertices:
+        x, y = v.co.x, v.co.y
+        v.co.z = 0.0035 + 0.0028 * max(0.0, math.sin(x * 70 + y * 25)) ** 2 + 0.0015 * math.sin(y * 110) * math.cos(x * 40)
+    cl.rotation_euler = (0, 0, math.radians(18))
+    cl.modifiers.new('Thick', 'SOLIDIFY').thickness = 0.0008
+    cl.data.materials.append(cloth)
+    bpy.ops.object.shade_smooth()
     r = build_ring('Yellow gold', 'Diamond', (0, 0, 0), 0)
-    r.location = (0.002, 0.0, 0.0031)
+    r.location = (0.002, 0.0, 0.0031 + 0.0016)
     r.rotation_euler = (math.radians(90), math.radians(-12), math.radians(20))
-    camera((0.0, -0.085, 0.07), (0.0, 0.0, 0.004), 85, 9.0)
+    camera((-0.005, -0.12, 0.08), (0.03, 0.01, 0.004), 65, 9.0)
 
 
 def stones_scene():
@@ -287,7 +346,7 @@ def main():
     mode = a.get('mode', 'product')
     samples = int(a.get('samples', 160))
     metal, stone = a.get('metal', 'Yellow gold'), a.get('stone', 'Diamond')
-    set_and_lights(sparks=not ((mode == 'product' and a.get('piece') == 'hoops') or mode in ('workshop', 'dish', 'hero')))
+    set_and_lights(sparks=not ((mode == 'product' and a.get('piece') == 'hoops') or mode in ('workshop', 'dish', 'hero')), dim={'workshop': 0.25, 'dish': 0.35}.get(mode, 1.0))
     if mode in ('workshop', 'dish', 'stones', 'claws'):
         {'workshop': workshop_scene, 'dish': dish_scene, 'stones': stones_scene, 'claws': claws_scene}[mode]()
         render_settings(int(a.get('w', 1200)), int(a.get('h', 900)), samples)

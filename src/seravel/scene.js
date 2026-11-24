@@ -121,13 +121,15 @@ export async function createSeravelScene(canvas, { tier, reducedMotion, onReady,
   const metal = new THREE.MeshPhysicalMaterial({ color: METALS['Yellow gold'].color, metalness: 1, roughness: 0.1, envMapIntensity: 2.2 });
   // A live scene cannot trace light bouncing inside a cut stone. So the stone is drawn as a bright mirror-cut gem:
   // every facet reflects the studio cards, with a thin film for the rainbow fire. Colored stones add their tint.
-  // Two layers fake what a real stone does. The back faces are a bright mirror turned against the front, so light
-  // seems to bounce inside the stone (the second bounce). The front faces are a lighter, part-clear mirror with a
-  // thin film for colored fire. Through the front you see the back facets flash.
-  const stone = new THREE.MeshPhysicalMaterial({ color: 0xffffff, metalness: 1, roughness: 0, envMapIntensity: 3.2, envMap: gemEnv,
-    iridescence: rich ? 0.7 : 0.45, iridescenceIOR: 2.2, iridescenceThicknessRange: [250, 700], flatShading: true,
-    transparent: true, opacity: 0.72, depthWrite: false });
-  const stoneBack = new THREE.MeshPhysicalMaterial({ color: 0xffffff, metalness: 1, roughness: 0, envMapIntensity: 4.2, envMap: gemEnv,
+  // High and mid tiers: a real transmissive stone like the NUITHRA glass. It refracts the velvet and the gold under
+  // it, splits light into color with dispersion and reflects the jeweler's light tent. A mirrored inner layer behind it
+  // adds the bright second bounce that a cut stone shows. The low tier keeps the cheaper two-layer mirror cut.
+  const stone = rich
+    ? new THREE.MeshPhysicalMaterial({ color: 0xffffff, transmission: 1, thickness: 0.06, ior: 2.42, roughness: 0, dispersion: 1.0,
+        specularIntensity: 1, envMap: gemEnv, envMapIntensity: 2.6, attenuationColor: 0xffffff, attenuationDistance: 1, flatShading: true })
+    : new THREE.MeshPhysicalMaterial({ color: 0xffffff, metalness: 1, roughness: 0, envMapIntensity: 3.2, envMap: gemEnv,
+        iridescence: 0.45, iridescenceIOR: 2.2, iridescenceThicknessRange: [250, 700], flatShading: true, transparent: true, opacity: 0.72, depthWrite: false });
+  const stoneBack = new THREE.MeshPhysicalMaterial({ color: 0xffffff, metalness: 1, roughness: 0, envMapIntensity: rich ? 1.1 : 4.2, envMap: gemEnv,
     side: THREE.BackSide, flatShading: true, envMapRotation: new THREE.Euler(0.9, 2.1, 0.4), iridescence: 0.35, iridescenceIOR: 2.0 });
   let stoneMesh = null;
   const backs = [];
@@ -209,10 +211,18 @@ export async function createSeravelScene(canvas, { tier, reducedMotion, onReady,
     const s = STONES[name] || STONES.Diamond;
     const c = new THREE.Color(s.color);
     const diamond = name === 'Diamond';
-    stone.color.set(0xffffff).lerp(c, diamond ? 0 : 0.7);
+    if (rich) {
+      stone.ior = s.ior;
+      stone.dispersion = diamond ? 1.0 : 0.4;
+      stone.attenuationColor.set(0xffffff).lerp(c, diamond ? 0 : 1);
+      stone.attenuationDistance = diamond ? 1 : 0.03;
+      stone.color.set(0xffffff).lerp(c, diamond ? 0 : 0.25);
+    } else {
+      stone.color.set(0xffffff).lerp(c, diamond ? 0 : 0.7);
+      stone.iridescence = diamond ? 0.45 : 0.15;
+    }
     stoneBack.color.set(0xffffff).lerp(c, diamond ? 0 : 0.95);
     stoneBack.emissive.copy(c).multiplyScalar(diamond ? 0 : 0.25);
-    stone.iridescence = diamond ? (rich ? 0.7 : 0.45) : 0.15;
     stoneBack.iridescence = diamond ? 0.35 : 0.05;
     sparkMat.color.set(diamond ? 0xffffff : new THREE.Color(0xffffff).lerp(c, 0.35));
   }
