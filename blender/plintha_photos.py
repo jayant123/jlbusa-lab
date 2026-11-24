@@ -225,27 +225,77 @@ def oak_wood():
         p.inputs['Coat Roughness'].default_value = 0.3
 
 
-def boucle_loops():
-    """Boucle: small round loops on top of the woven scan, as a bump layered over its normal map."""
+def boucle_loops(strength=1.0):
+    """Boucle: irregular loops of yarn. Two layers of scattered rings (Voronoi distance turned into a ring height),
+    their positions wobbled by noise so no two loops are alike. The rings replace the fine weave scan as the
+    surface relief, and the loop shadows darken the color a little."""
     m = bpy.data.materials.get('upholstery')
     if not m:
         return
     nt = m.node_tree
     p = nt.nodes['Principled BSDF']
-    nm = next((n for n in nt.nodes if n.type == 'NORMAL_MAP'), None)
     tc = nt.nodes.new('ShaderNodeTexCoord')
-    vor = nt.nodes.new('ShaderNodeTexVoronoi')
-    vor.feature = 'SMOOTH_F1'
-    vor.inputs['Scale'].default_value = 520.0
-    vor.inputs['Randomness'].default_value = 0.9
-    nt.links.new(tc.outputs['Object'], vor.inputs['Vector'])
+    noise = nt.nodes.new('ShaderNodeTexNoise')
+    noise.inputs['Scale'].default_value = 140.0
+    noise.inputs['Detail'].default_value = 3.0
+    warp = nt.nodes.new('ShaderNodeVectorMath')
+    warp.operation = 'MULTIPLY_ADD'
+    warp.inputs[1].default_value = (0.0035, 0.0035, 0.0035)
+    nt.links.new(tc.outputs['Object'], noise.inputs['Vector'])
+    nt.links.new(noise.outputs['Color'], warp.inputs[0])
+    nt.links.new(tc.outputs['Object'], warp.inputs[2])
+
+    def ring_layer(scale, radius, width, offset):
+        mp = nt.nodes.new('ShaderNodeMapping')
+        mp.inputs['Location'].default_value = offset
+        nt.links.new(warp.outputs['Vector'], mp.inputs['Vector'])
+        vor = nt.nodes.new('ShaderNodeTexVoronoi')
+        vor.feature = 'F1'
+        vor.inputs['Scale'].default_value = scale
+        vor.inputs['Randomness'].default_value = 1.0
+        nt.links.new(mp.outputs['Vector'], vor.inputs['Vector'])
+        sub = nt.nodes.new('ShaderNodeMath'); sub.operation = 'SUBTRACT'; sub.inputs[1].default_value = radius
+        ab = nt.nodes.new('ShaderNodeMath'); ab.operation = 'ABSOLUTE'
+        dv = nt.nodes.new('ShaderNodeMath'); dv.operation = 'DIVIDE'; dv.inputs[1].default_value = width
+        inv = nt.nodes.new('ShaderNodeMapRange')
+        inv.inputs['From Min'].default_value = 0.0
+        inv.inputs['From Max'].default_value = 1.0
+        inv.inputs['To Min'].default_value = 1.0
+        inv.inputs['To Max'].default_value = 0.0
+        inv.interpolation_type = 'SMOOTHSTEP'
+        nt.links.new(vor.outputs['Distance'], sub.inputs[0])
+        nt.links.new(sub.outputs[0], ab.inputs[0])
+        nt.links.new(ab.outputs[0], dv.inputs[0])
+        nt.links.new(dv.outputs[0], inv.inputs['Value'])
+        return inv.outputs['Result']
+
+    # Four overlapping layers of loops so the yarn covers the whole surface with no flat gaps.
+    rings = [ring_layer(sc, 0.24, 0.17, off) for sc, off in ((210.0, (0, 0, 0)), (250.0, (0.37, 0.11, 0.53)), (290.0, (0.71, 0.43, 0.19)), (330.0, (0.13, 0.67, 0.91)))]
+    mx = rings[0]
+    for r in rings[1:]:
+        m_ = nt.nodes.new('ShaderNodeMath'); m_.operation = 'MAXIMUM'
+        nt.links.new(mx, m_.inputs[0]); nt.links.new(r, m_.inputs[1])
+        mx = m_.outputs[0]
+    mx = type('S', (), {'outputs': [mx]})()
     bump = nt.nodes.new('ShaderNodeBump')
-    bump.inputs['Strength'].default_value = 0.9
-    bump.inputs['Distance'].default_value = 0.0008
-    nt.links.new(vor.outputs['Distance'], bump.inputs['Height'])
-    if nm:
-        nt.links.new(nm.outputs['Normal'], bump.inputs['Normal'])
+    bump.inputs['Strength'].default_value = strength
+    bump.inputs['Distance'].default_value = 0.0012
+    nt.links.new(mx.outputs[0], bump.inputs['Height'])
     nt.links.new(bump.outputs['Normal'], p.inputs['Normal'])
+    # Shadow between the loops: darken the color where there is no yarn.
+    base = p.inputs['Base Color'].links[0].from_socket if p.inputs['Base Color'].links else None
+    if base is not None:
+        shade = nt.nodes.new('ShaderNodeMapRange')
+        shade.inputs['To Min'].default_value = 0.8
+        shade.inputs['To Max'].default_value = 1.0
+        nt.links.new(mx.outputs[0], shade.inputs['Value'])
+        mul = nt.nodes.new('ShaderNodeMix')
+        mul.data_type = 'RGBA'
+        mul.blend_type = 'MULTIPLY'
+        mul.inputs['Factor'].default_value = 1.0
+        nt.links.new(base, mul.inputs[6])
+        nt.links.new(shade.outputs['Result'], mul.inputs[7])
+        nt.links.new(mul.outputs[2], p.inputs['Base Color'])
 
 
 def rug_weave():
@@ -300,6 +350,7 @@ def main():
     if kind == 'hero':
         bg = setup(samples, int(a.get('w', 2400)), int(a.get('h', 1500)))
         room_scene('Boucle Chalk', 'showroom')
+        boucle_loops(0.8)
         daylight(bg)
         camera((-0.75, -5.6, 1.2), (2.05, -0.9, 0.5), 27, 8)
     elif kind == 'layout':
@@ -322,7 +373,7 @@ def main():
         bg.inputs['Color'].default_value = (0.6, 0.57, 0.53, 1)
         bg.inputs['Strength'].default_value = 0.12
         # A low light from the side grazes the cushion so every thread casts a tiny shadow.
-        area('rake', (0.18, -1.62, 0.46), (math.radians(90), 0, math.radians(-38)), 0.3, 32, (1.0, 0.95, 0.88))
+        area('rake', (0.18, -1.62, 0.46), (math.radians(90), 0, math.radians(-38)), 0.6 if fabric == 'Boucle Chalk' else 0.3, 32, (1.0, 0.95, 0.88))
         area('soft', (1.3, -1.9, 1.2), (math.radians(60), 0, math.radians(35)), 1.5, 40, (0.92, 0.95, 1.0))
         # Close on the front edge of the middle seat cushion: the piped seam and the top surface.
         camera((0.62, -1.24, 0.5), (0.72, -0.93, 0.425), 100, 8)
@@ -335,8 +386,11 @@ def main():
         mod = rest[0]
         bg = setup(samples, int(a.get('w', 900)), int(a.get('h', 1125)))
         studio(bg)
-        m = PS.mats(a.get('fabric', 'Boucle Chalk'), scale=1.35, normal=1.1)
+        fab = a.get('fabric', 'Boucle Chalk')
+        m = PS.mats(fab, scale=1.35, normal=1.1)
         o = PS.module(mod, m, 'photo')
+        if fab == 'Boucle Chalk':
+            boucle_loops(0.8)
         W, D = PS.FOOT[mod]
         t = math.radians(0)
         cx, cy = W / 2, -D / 2  # module center in its own frame (origin = back-left floor corner)
