@@ -10,6 +10,7 @@ import { track } from '../kit/track.js';
 import { createConfigurator } from './configurator.js';
 import { cleanEngraving, engravingAttrs, MAX_ENGRAVING } from './engraving.js';
 import { BUILDS } from './builds.js';
+import { largestGap } from './freeband.js';
 import { wristFit, LUG_TO_LUG, CASE_MM } from './wrist.js';
 import { resolveVariant, variantState } from '../kit/catalog.js';
 
@@ -193,9 +194,27 @@ const labelEls = LABELS.map(([k, name, spec]) => {
   labelsRoot.appendChild(el);
   return { k, el };
 });
+// Phones: find the largest band of screen that nothing covers and hand it to the scene for framing.
+const COVER = '.o-announce, .o-top, .o-bar, .o-chapter, .o-steps, .o-config-copy, main > section:not([data-3d]), .o-foot';
+let lastFree = '';
+function reportFree() {
+  if (innerWidth > 900) return;
+  const h = window.visualViewport?.height || innerHeight;
+  const iv = [];
+  for (const el of document.querySelectorAll(COVER)) {
+    const r = el.getBoundingClientRect();
+    if (r.height && r.bottom > 0 && r.top < h) iv.push([r.top, r.bottom]);
+  }
+  const [top, bottom] = largestGap(iv, h);
+  const key = `${top | 0},${bottom | 0}`;
+  if (key === lastFree || bottom - top < 90) return;
+  lastFree = key;
+  scene.setFree(top + 6, bottom - 6);
+}
 function drawLabels() {
   requestAnimationFrame(drawLabels);
   if (!scene) return;
+  reportFree();
   const { t, night, flip } = scene.state();
   const show = innerWidth > 900 && t > 0.45 && night < 0.1 && flip < 0.1;
   labelsRoot.classList.toggle('on', show);

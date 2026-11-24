@@ -44,6 +44,9 @@ const FOCUS = {
   Crown: [[0.050, 0.020, 0.016], [0.018, 0.005, 0.0]],
   Lugs: [[0.030, 0.030, 0.050], [0.010, 0.004, 0.018]],
 };
+// Phones: how big the subject is in each view (meters). The camera backs off until it fits the free area.
+const SUBJECT = { Dial: 0.024, Case: 0.03, Strap: 0.05, Engraving: 0.03, config: 0.03, night: 0.028 };
+const FILL = 0.86, TAN = Math.tan((28 / 2) * Math.PI / 180);
 // Label anchors: height above the part origin and radius from the axis, in meters.
 const ANCHOR = {
   crystal: [0.0122, 0.010], bezel: [0.0108, 0.0195], hands_minute: [0.0074, 0.008], dial: [0.0063, 0.0166],
@@ -282,13 +285,25 @@ export async function createOstrelScene(canvas, { tier, onReady, onFallback, red
   }
 
   // Composition: on wide screens the watch sits right of the copy.
-  let dist = 1;
+  // On phones the page reports the free band of screen (not covered by the header, a card, the option panel or the
+  // purchase bar). The watch is centered in that band and the camera backs off until the subject fits it.
+  let dist = 1, narrow = false, free = null, offY = 0;
   function frame() {
     const w = canvas.clientWidth, h = canvas.clientHeight;
-    if (w > 900) { camera.setViewOffset(w, h, -w * 0.2, 0, w, h); dist = 1; }
-    else { const short = w < 600 && h / w < 2; // e.g. iPhone SE: less room above the copy
-      camera.setViewOffset(w, h, 0, h * (short ? 0.34 : w < 600 ? 0.3 : 0.2), w, h); dist = short ? 2.3 : w < 600 ? 1.8 : 1.2; }
+    narrow = w <= 900;
+    if (!narrow) { camera.setViewOffset(w, h, -w * 0.2, 0, w, h); dist = 1; camera.updateProjectionMatrix(); return; }
+    if (!free) free = { top: h * 0.1, bottom: h * 0.55 };
+    camera.setViewOffset(w, h, 0, offY, w, h);
     camera.updateProjectionMatrix();
+  }
+  function fitTargets(len) {
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+    const band = Math.max(80, free.bottom - free.top);
+    let R = configView ? (SUBJECT[focusKey] || SUBJECT.config) : 0.028 + 0.014 * ease(clamp(t));
+    if (!configView && night > 0.01) R += (SUBJECT.night - R) * ease(night);
+    R += 0.008 * ease(flipV); // turned over, the lugs and strap swing wide
+    const D = R / (FILL * TAN * Math.min(band, w) / h);
+    return { dist: D / Math.max(1e-4, len), off: h / 2 - (free.top + free.bottom) / 2 };
   }
   window.addEventListener('resize', () => { frame(); dirty = true; });
   frame();
@@ -378,6 +393,12 @@ export async function createOstrelScene(canvas, { tier, onReady, onFallback, red
     if (macro) [p, g] = MACRO;
     if (configView) [p, g] = FOCUS[focusKey] || CONFIG;
     const tgtV = new THREE.Vector3(...g);
+    if (narrow && free) {
+      const ft = fitTargets(Math.hypot(p[0] - g[0], p[1] - g[1], p[2] - g[2]));
+      const k = sm(5);
+      const nd = dist + (ft.dist - dist) * k, no = offY + (ft.off - offY) * k;
+      if (Math.abs(nd - dist) > 1e-4 || Math.abs(no - offY) > 0.05) { dist = nd; offY = no; frame(); dirty = true; }
+    }
     const far = 1 + (1 - ease(ik)) * 1.4;
     const posV = new THREE.Vector3(...p).sub(tgtV).multiplyScalar(dist * far).add(tgtV);
     camera.position.lerp(posV, ik < 1 ? 1 : 0.08);
@@ -406,6 +427,7 @@ export async function createOstrelScene(canvas, { tier, onReady, onFallback, red
     apply: touch(apply),
     setT: touch(setT),
     // The canvas draws only while a 3D section is on screen.
+    setFree(top, bottom) { if (!free || Math.abs(free.top - top) > 0.5 || Math.abs(free.bottom - bottom) > 0.5) { free = { top, bottom }; dirty = true; } },
     setActive(on) { if (on && !active) dirty = true; active = on; },
     setConfigView(on) { configView = on; if (on) tTarget = 0; dirty = true; },
     setMacro(on) { macro = on; },
