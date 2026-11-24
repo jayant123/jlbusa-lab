@@ -85,7 +85,7 @@ function labelTex(name) {
   });
 }
 
-export async function createNuithraScene(canvas, { tier, reducedMotion, onReady, onFallback, onPick, dragSurfaces = [], still = false }) {
+export async function createNuithraScene(canvas, { tier, reducedMotion, onReady, onFallback, onPick, dragSurfaces = [], still = false, band = () => null }) {
   const stage = createStage(canvas, { tier, fov: 28, shouldRender: () => active, createRenderer: (c, tr) => {
     const r = new THREE.WebGLRenderer({ canvas: c, antialias: true, powerPreference: 'high-performance' });
     r.toneMapping = THREE.AgXToneMapping;
@@ -215,10 +215,57 @@ export async function createNuithraScene(canvas, { tier, reducedMotion, onReady,
   function setScent(handle) { selected = idx(handle); }
   function setSize(s) { size = s; }
 
+  // Phones: the product and craft sections give the 3D its own band of the screen (band() gives its rect).
+  // The camera fits the chosen bottle at its largest size, and in the light view the light it throws on the stone,
+  // inside that band. The view offset then centers the picture on the band.
+  const BIG = sizeScale('100 ml');
+  const FIT_DIR = { pdp: new THREE.Vector3(-0.06, 0.06, 1).normalize(), light: new THREE.Vector3(0, 0.26, 1).normalize() };
+  const fitCam = new THREE.PerspectiveCamera(camera.fov, 1, 0.01, 20);
+  const box = new THREE.Box3(), ctr = new THREE.Vector3(), pt = new THREE.Vector3();
+  const pts = Array.from({ length: 20 }, () => new THREE.Vector3());
+  const fit = { pos: new THREE.Vector3(), look: new THREE.Vector3(), xc: 0, yc: 0, on: false };
+  function fitBand(v, r) {
+    const b = bottles[selected], i = b.info, h = canvas.clientHeight, w = canvas.clientWidth;
+    // The bottle as two rings (base and top) that hold it at any turn. The light view adds the far end of its pool.
+    const rad = Math.hypot(i.w, i.d) * 0.5 * BIG, z = b.pos.z + 0.05, light = v === 'light';
+    for (let k = 0; k < 16; k++) {
+      const a = ((k % 8) / 8) * Math.PI * 2;
+      pts[k].set(b.pos.x + Math.cos(a) * rad, k < 8 ? (light ? 0 : -i.height * 0.06) : i.height * BIG, z + Math.sin(a) * rad);
+    }
+    const len = (0.06 + i.height * 0.9) * 1.5 * BIG, half = i.w * 1.35 * BIG * 0.5;
+    const n = light ? 20 : 16;
+    if (light) {
+      pts[16].set(b.pos.x - half, 0, z + len * 0.55); pts[17].set(b.pos.x + half, 0, z + len * 0.55);
+      pts[18].set(b.pos.x - half * 0.6, 0, z + len * 0.85); pts[19].set(b.pos.x + half * 0.6, 0, z + len * 0.85);
+    }
+    box.setFromPoints(pts.slice(0, n));
+    box.getCenter(ctr);
+    fitCam.aspect = w / h;
+    fitCam.updateProjectionMatrix();
+    const limY = (0.8 * (r.bottom - r.top)) / h, limX = 0.84;
+    let d = 0.6, ext = [0, 0, 0, 0];
+    for (let k = 0; k < 6; k++) {
+      fitCam.position.copy(ctr).addScaledVector(FIT_DIR[v], d);
+      fitCam.lookAt(ctr);
+      fitCam.updateMatrixWorld();
+      ext = [Infinity, -Infinity, Infinity, -Infinity];
+      for (let c = 0; c < n; c++) {
+        pt.copy(pts[c]).project(fitCam);
+        ext = [Math.min(ext[0], pt.x), Math.max(ext[1], pt.x), Math.min(ext[2], pt.y), Math.max(ext[3], pt.y)];
+      }
+      d *= Math.max((ext[1] - ext[0]) / (2 * limX), (ext[3] - ext[2]) / (2 * limY));
+    }
+    fit.pos.copy(fitCam.position);
+    fit.look.copy(ctr);
+    fit.xc = (ext[0] + ext[1]) / 2;
+    fit.yc = (ext[2] + ext[3]) / 2;
+  }
+
   // Camera views: [position, target] around the chosen bottle (b) or the row.
   function viewOf(v) {
     const b = bottles[selected].pos, f = 0.05;
     const n = narrow;
+    if (fit.on) return [fit.pos.toArray(), fit.look.toArray()];
     switch (v) {
       case 'glass': return [[b.x + 0.1, 0.085, b.z + f + (n ? 0.42 : 0.3)], [b.x, 0.062, b.z + f]];
       case 'light': return [[b.x * 0.4 - 0.05, 0.075, n ? 0.95 : 0.6], [b.x * 0.4, 0.045, 0.06]];
@@ -233,7 +280,7 @@ export async function createNuithraScene(canvas, { tier, reducedMotion, onReady,
   // Composition: how far the picture shifts right on wide screens, and how far up on phones, per view.
   const OFFSET = { hero: 0, pdp: 0.22, glass: 0.21, light: 0.18, notes: 0.21, shop: 0.21, solo: 0 };
   const NARROW_UP = { hero: -0.2, solo: 0 };
-  let offX = 0, offT = 0, active = true;
+  let offX = 0, offT = 0, active = true, fitX = 0, fitY = 0, banded = false;
   function frame() {
     layout();
     const w = canvas.clientWidth, h = canvas.clientHeight;
@@ -285,7 +332,10 @@ export async function createNuithraScene(canvas, { tier, reducedMotion, onReady,
     const t = now - t0;
     if (Math.abs(offT - offX) > 0.5) { offX += (offT - offX) * Math.min(1, dt * 3); frame(); }
     // The back light sweeps the row in the hero and settles behind the chosen bottle elsewhere.
-    const sweep = view === 'hero' || view === 'light';
+    const r = view === 'pdp' || view === 'light' ? band() : null;
+    if (r) fitBand(view, r);
+    fit.on = !!r;
+    const sweep = view === 'hero' || (view === 'light' && !r);
     const target = still ? bottles[selected].pos.x : sweep && !reducedMotion ? Math.sin(t * 0.32) * (narrow ? 0.16 : 0.26) : bottles[selected].pos.x;
     lightX += (target - lightX) * sm(view === 'hero' ? 6 : 2);
     back.position.set(lightX, 0.3, -0.34);
@@ -327,6 +377,14 @@ export async function createNuithraScene(canvas, { tier, reducedMotion, onReady,
     cam.look.lerp(tmp2, sm(2.2));
     camera.position.copy(cam.pos);
     camera.lookAt(cam.look);
+    if (r) {
+      // Center the fitted picture on the band, wherever the band is on the screen right now.
+      const w = canvas.clientWidth, h = canvas.clientHeight, k = sm(2.2);
+      fitX += (fit.xc - fitX) * k; fitY += (fit.yc - fitY) * k;
+      camera.setViewOffset(w, h, (fitX * w) / 2, ((1 - fitY) / 2) * h - (r.top + r.bottom) / 2, w, h);
+      camera.updateProjectionMatrix();
+      banded = true;
+    } else if (banded) { banded = false; frame(); }
   });
 
   try { await renderer.compileAsync(scene, camera); } catch { renderer.compile(scene, camera); }

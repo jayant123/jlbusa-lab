@@ -203,7 +203,7 @@ async function start3d() {
     const { createNuithraScene } = await import('./scene.js');
     scene = await createNuithraScene($('#gl'), {
       tier, reducedMotion: reduced, onFallback: fallback, still: params.has('still'),
-      dragSurfaces: $$('[data-3d]'),
+      dragSurfaces: $$('[data-3d]'), band: activeBand,
       onPick: (h) => { setScent(h); track('bottle_pick', { scent: SCENTS[h].name }); },
       onReady: () => requestAnimationFrame(() => body.classList.add('gl-ready')),
     });
@@ -238,21 +238,65 @@ async function scrollDrive() {
     const { default: Lenis } = await import('lenis');
     const lenis = new Lenis({ lerp: 0.1 });
     lenis.on('scroll', ScrollTrigger.update);
-    gsap.ticker.add((time) => lenis.raf(time * 1000));
+    gsap.ticker.add((time) => { lenis.raf(time * 1000); clipBands(); });
     gsap.ticker.lagSmoothing(0);
   }
   const triggers = [];
   const direct = () => {
     const on = triggers.filter((t) => t.st.isActive).pop();
-    const v = on ? on.view : 'hero';
+    const v = bandView ?? (on ? on.view : 'hero');
     body.dataset.view = v;
     scene.setView(v);
   };
   for (const el of $$('[data-3d][data-view]')) {
     triggers.push({ view: el.dataset.view, st: ScrollTrigger.create({ trigger: el, start: 'top 60%', end: 'bottom 40%', onToggle: direct }) });
   }
+  onBandView = direct;
   direct();
 }
+
+// Phones: each 3D section opens with a band that sticks under the header. The 3D shows only inside the bands.
+// The details scroll up beneath a band. The band then leaves with its section. The band that fills most of the
+// screen picks the camera view.
+const stage = $('.n-stage'), bands = $$('.n-band');
+const phone = matchMedia('(max-width: 700px)');
+let bandView = null, onBandView = () => {}, bandEl = null;
+function activeBand() {
+  if (!phone.matches || !bandEl) return null;
+  const r = bandEl.getBoundingClientRect();
+  return { top: r.top, bottom: r.bottom };
+}
+function clipBands() {
+  if (!phone.matches) {
+    stage.style.clipPath = '';
+    if (bandView !== null) { bandView = null; bandEl = null; onBandView(); }
+    return;
+  }
+  const shape = [];
+  let best = 0, pick = null;
+  for (const el of bands) {
+    const r = el.getBoundingClientRect();
+    const a = Math.max(0, r.top), b = Math.min(innerHeight, r.bottom);
+    if (b <= a) continue;
+    // One rectangle per band. They join along the left edge, which adds no area.
+    shape.push(`0 ${a}px`, `100% ${a}px`, `100% ${b}px`, `0 ${b}px`);
+    if (b - a > best) { best = b - a; pick = el; }
+  }
+  stage.style.clipPath = pick ? `polygon(${shape.join(',')})` : 'inset(100%)';
+  bandEl = pick;
+  const v = pick ? pick.closest('[data-view]').dataset.view : null;
+  if (v !== bandView) { bandView = v; onBandView(); }
+}
+addEventListener('scroll', clipBands, { passive: true });
+// The band sits under the header and fills part of the room above the purchase bar.
+function sizeBands() {
+  const root = document.documentElement.style;
+  root.setProperty('--n-head', `${$('.n-top').offsetHeight}px`);
+  root.setProperty('--n-barh', `${$('.n-bar').offsetHeight}px`);
+  clipBands();
+}
+addEventListener('resize', sizeBands);
+sizeBands();
 
 render();
 loadProducts();

@@ -61,6 +61,7 @@ h2,h3{font-family:var(--n-serif);font-weight:400;text-wrap:balance}
 body[data-view="pdp"] .n-stage::after,body[data-view="light"] .n-stage::after{opacity:1}
 .gl-ready .n-stage canvas{opacity:1}.gl-ready .n-poster{opacity:0}
 .no-gl .n-stage canvas{display:none}
+.n-band{display:none}
 main,.n-foot{position:relative;z-index:1}
 
 /* Hero: the collection is the picture. Copy sits above it. */
@@ -259,11 +260,16 @@ details[open]>summary::after{content:"−"}
   .n-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
   .n-card-p h3{font-size:1.15rem;margin:12px 12px 2px}.n-card-mood,.n-card-notes{margin-left:12px;margin-right:12px}
   .n-card-notes{display:none}.n-light .n-card-price{margin:8px 12px 10px}.n-card-btn{margin:auto 12px 12px;font-size:13px}
-  .n-pdp{padding:46vh 0 6vh}
-  .n-pdp-info{max-width:none;background:rgba(7,4,6,.94);padding:22px 16px;border-top:1px solid var(--n-line)}
+  /* Phones: the 3D gets its own band under the header. The details sit below it and scroll up beneath it. */
+  :root{--n-band:calc((100svh - var(--n-head,65px) - var(--n-barh,68px)) * .56)}
+  .n-stage{z-index:15}
+  .n-band{display:block;position:sticky;top:var(--n-head,65px);z-index:2;height:var(--n-band)}
+  .n-pdp-info *,.n-card *{scroll-margin-top:calc(var(--n-head,65px) + var(--n-band) + 12px)}
+  .n-pdp{min-height:0;padding:0}
+  .n-pdp-info{position:relative;z-index:1;max-width:none;background:var(--n-bg);padding:22px 16px 32px;border-top:1px solid var(--n-line)}
   .n-scents{grid-template-columns:minmax(0,1fr)}
-  .n-craft{min-height:150vh;padding:0;display:flex;flex-direction:column;justify-content:flex-end}
-  .n-card{position:sticky;top:auto;bottom:calc(80px + env(safe-area-inset-bottom));margin:0 16px;background:rgba(7,4,6,.9);padding:16px 16px 14px 20px;border:1px solid var(--n-line)}
+  .n-craft{min-height:0;padding:0}
+  .n-card{position:relative;z-index:1;top:auto;max-width:none;margin:0;background:var(--n-bg);padding:22px 16px 32px 20px;border-top:1px solid var(--n-line)}
   .n-foot-cols{grid-template-columns:minmax(0,1fr)}
   .n-bar-item{display:none}.n-bar{gap:8px}.n-bar-price{font-size:16px;margin-right:auto}
   .n-add,.n-checkout{padding:12px 12px;font-size:13px;white-space:nowrap}
