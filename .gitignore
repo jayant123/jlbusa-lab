@@ -6,3 +6,4 @@ playwright-report
 .env*
 .vitest
 build
+test-results

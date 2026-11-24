@@ -2,12 +2,81 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex">
-<title>OSTREL: a concept store by JLB USA</title>
+<title>OSTREL Meridian 40: a concept store by JLB USA</title>
+<meta name="description" content="OSTREL is a fictional watchmaker: a concept store by JLB USA showing a 3D product experience on a live Shopify catalog and cart.">
+<meta name="theme-color" content="#0a0b0c">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet"></noscript>
+<link rel="preload" as="image" href="/ostrel/stills/hero.webp" fetchpriority="high">
+<link rel="stylesheet" href="/src/kit/kit.css">
+<link rel="stylesheet" href="/src/ostrel/style.css">
 </head>
-<body>
-<main id="app"><h1>OSTREL</h1></main>
+<body data-scrub="on" data-explode="0">
+<header class="o-top">
+  <a class="o-mark" href="#top" aria-label="OSTREL, back to top">OSTREL</a>
+  <nav class="o-nav" aria-label="Sections"><a href="#craft">Craft</a><a href="#configure">Configure</a></nav>
+  <span class="o-concept">Concept by JLB USA</span>
+</header>
+
+<div class="o-stage" aria-hidden="true">
+  <img class="o-poster ostrel-still" src="/ostrel/stills/hero.webp" alt="" width="1600" height="1000" fetchpriority="high">
+  <canvas id="gl"></canvas>
+</div>
+
+<main id="top">
+  <section class="o-hero">
+    <p class="o-eyebrow">Meridian 40 · Automatic · Concept</p>
+    <h1>The Meridian 40, taken apart in your hands</h1>
+    <p class="o-lede">A forty-millimeter automatic with an open caseback. Scroll and it separates part by part, down to the beating balance wheel. Then choose your dial, case and strap.</p>
+    <a class="o-down" href="#craft">Begin</a>
+  </section>
+
+  <section class="o-track" id="craft" aria-label="How the watch is built">
+    <article class="o-chapter">
+      <p class="o-num">01</p>
+      <h2>Domed sapphire, lifted clear</h2>
+      <p>The crystal rises first, then the polished bezel. Anti-reflective coating on both sides keeps the dial readable at any angle.</p>
+      <dl class="o-spec"><div><dt>Crystal</dt><dd>Domed sapphire</dd></div><div><dt>Case</dt><dd>40 mm × 11.5 mm</dd></div></dl>
+    </article>
+    <article class="o-chapter">
+      <p class="o-num">02</p>
+      <h2>A dial built in layers</h2>
+      <p>Applied, hand-polished indices sit above a sunburst finish. The hands float on three levels, the seconds hand in champagne gold.</p>
+      <dl class="o-spec"><div><dt>Dial</dt><dd>Sunburst, applied indices</dd></div><div><dt>Hands</dt><dd>Lumed sword hands</dd></div></dl>
+    </article>
+    <article class="o-chapter">
+      <p class="o-num">03</p>
+      <h2>The movement, in the open</h2>
+      <p>Gold train wheels, a free-sprung balance and a blued hairspring. The escapement keeps ticking while you look.</p>
+      <dl class="o-spec"><div><dt>Frequency</dt><dd>4 Hz (28,800 vph)</dd></div><div><dt>Reserve</dt><dd>70 hours</dd></div></dl>
+      <img class="o-chapter-still ostrel-still" src="/ostrel/stills/exploded.webp" alt="The OSTREL watch shown exploded: crystal, hands, dial, gears and movement plate separated above the case." loading="lazy" width="1600" height="1000">
+    </article>
+    <div class="o-steps">
+      <button type="button" class="o-step" data-go="1">Show the movement</button>
+      <button type="button" class="o-step" data-go="0">Reassemble</button>
+    </div>
+  </section>
+
+  <section class="o-config" id="configure" aria-labelledby="cfg-title">
+    <h2 id="cfg-title">Configure your Meridian&nbsp;40</h2>
+    <p class="o-config-note">Every combination below is a real variant in this concept's Shopify store. Prices and availability come from Shopify.</p>
+    <form class="o-options" id="options" onsubmit="return false"></form>
+    <p class="o-status" id="status" role="status" aria-live="polite"></p>
+  </section>
+</main>
+
+<div class="o-bar" role="region" aria-label="Purchase">
+  <div class="o-bar-item"><span class="o-bar-name">Meridian 40</span><span class="o-bar-sel" id="summary"></span></div>
+  <span class="o-bar-price" data-testid="price" id="price"></span>
+  <button type="button" class="o-add" id="add" disabled>Add to cart</button>
+  <button type="button" class="o-checkout" id="checkout">Checkout (0)</button>
+</div>
+<div id="panel-root"></div>
+
 <footer class="concept-foot">Concept by JLB USA. Fictional brand; products and prices are demo data. <a href="https://jlbusa.com/">jlbusa.com</a></footer>
+<script type="module" src="/src/ostrel/main.js"></script>
 </body>
 </html>
