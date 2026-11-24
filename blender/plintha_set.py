@@ -17,8 +17,9 @@ import common as C  # noqa: E402
 
 TEX = os.path.join(os.path.dirname(__file__), 'textures')
 FOOT = {'armless': (0.90, 1.00), 'corner': (1.00, 1.00), 'arm_left': (1.05, 1.00), 'arm_right': (1.05, 1.00), 'chaise': (0.90, 1.65), 'ottoman': (0.90, 0.90)}
-LOD = {'high': dict(seg=3, cuts=2, sub=2), 'mid': dict(seg=2, cuts=2, sub=1), 'low': dict(seg=1, cuts=1, sub=1)}
+LOD = {'photo': dict(seg=4, cuts=3, sub=3), 'high': dict(seg=3, cuts=2, sub=2), 'mid': dict(seg=2, cuts=2, sub=1), 'low': dict(seg=1, cuts=1, sub=1)}
 SUB = [2]  # smoothing level for soft_box, set per LOD in module()
+DETAIL = [False]  # photo LOD only: soft creases in the cushions and piping along their seams
 TEX_MEAN = {'Fabric085': 0.40, 'Fabric032': 0.88}  # mean brightness of each scan, so a tint lands on its color
 
 
@@ -106,6 +107,40 @@ def soft_box(name, x0, x1, y0, y1, z0, z1, r, crown, mat, seg, cuts, bulge=None,
     if SUB[0]:
         m = o.modifiers.new('Soft', 'SUBSURF')
         m.levels = m.render_levels = SUB[0]
+    if DETAIL[0] and crown > 0.01:
+        # Soft creases: low, broad noise pushed along the normals, strongest on the big faces.
+        tex = bpy.data.textures.new(f'{name}_crease', 'CLOUDS')
+        tex.noise_scale = 0.07
+        tex.noise_depth = 2
+        d = o.modifiers.new('Crease', 'DISPLACE')
+        d.texture = tex
+        d.texture_coords = 'GLOBAL'
+        d.strength = 0.007
+        d.mid_level = 0.5
+    return o
+
+
+def piping(name, x0, x1, y0, y1, z, r, mat, inset=0.022):
+    """A thin cord along a cushion seam: a rounded rectangle in plan at height z."""
+    cu = bpy.data.curves.new(name, 'CURVE')
+    cu.dimensions = '3D'
+    cu.bevel_depth = 0.0042
+    cu.bevel_resolution = 4
+    sp = cu.splines.new('POLY')
+    a0, a1, b0, b1 = x0 + inset, x1 - inset, y0 + inset, y1 - inset
+    rr = min(r, (a1 - a0) / 2 - 0.001, (b1 - b0) / 2 - 0.001)
+    pts = []
+    for cx, cy, ang in ((a1 - rr, b1 - rr, 0), (a0 + rr, b1 - rr, 90), (a0 + rr, b0 + rr, 180), (a1 - rr, b0 + rr, 270)):
+        for i in range(9):
+            a = math.radians(ang + 90 * i / 8)
+            pts.append((cx + rr * math.cos(a), cy + rr * math.sin(a), z))
+    sp.points.add(len(pts) - 1)
+    for p_, co in zip(sp.points, pts):
+        p_.co = (*co, 1)
+    sp.use_cyclic_u = True
+    o = bpy.data.objects.new(name, cu)
+    bpy.context.collection.objects.link(o)
+    o.data.materials.append(mat)
     return o
 
 
@@ -127,6 +162,7 @@ def module(kind, m, lod):
     ar = arm if kind == 'arm_right' else 0.0
     seat = dict(r=0.1, crown=0.045, bulge=0.022)
     back = dict(r=0.11, crown=0.018, bulge=0.04)
+    DETAIL[0] = lod == 'photo'
     if kind == 'ottoman':
         parts.append(soft_box('ottoman_seat', 0.01, W - 0.01, -D + 0.01, -0.01, 0.245, 0.43, mat=up, seg=s_, cuts=c, **seat))
     elif kind == 'corner':
@@ -143,6 +179,11 @@ def module(kind, m, lod):
             parts.append(soft_box('arm_l', 0.0, arm, -D + 0.005, -0.005, 0.07, 0.64, 0.1, 0.012, up, s_, c, bulge=0.03))
         if ar:
             parts.append(soft_box('arm_r', W - arm, W, -D + 0.005, -0.005, 0.07, 0.64, 0.1, 0.012, up, s_, c, bulge=0.03))
+    if DETAIL[0]:
+        # Piping on the top seam of every seat cushion and along the base.
+        seat_box = {'ottoman': (0.01, W - 0.01, -D + 0.01, -0.01), 'corner': (0.012, W - 0.27, -D + 0.02, -0.27)}.get(kind, (al + 0.012, W - ar - 0.012, -D + 0.02, -0.27))
+        parts.append(piping(f'{kind}_pipe_top', *seat_box, 0.43 - 0.012, 0.06, up))
+        parts.append(piping(f'{kind}_pipe_base', 0.002, W - 0.002, -D + 0.002, -0.002, 0.25 - 0.012, 0.04, up, inset=0.012))
     o = C.join(kind, parts)
     world_uv(o)
     return o
@@ -158,10 +199,10 @@ def world_uv(o):
     bpy.ops.object.mode_set(mode='OBJECT')
 
 
-def mats(fabric='Boucle Chalk'):
+def mats(fabric='Boucle Chalk', scale=1.0):
     tex, tint, rough = FABRICS[fabric]
     return {
-        'up': tex_material('upholstery', tex, tint, rough, scale=1.0, normal_strength=0.8, gray=True),
+        'up': tex_material('upholstery', tex, tint, rough, scale=scale, normal_strength=0.8, gray=True),
         'oak': C.material('oak_plinth', (0.06, 0.04, 0.03), roughness=0.45),
     }
 

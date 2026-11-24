@@ -237,4 +237,45 @@ test.describe('PLINTHA', () => {
     await expect(page.locator('#fit')).toHaveText('It fits. 120 cm to spare on this wall.');
     await expect(page.locator('.p-plan .wall')).toContainText('Wall 420 cm');
   });
+
+  test('store: a module card adds that module to the layout', async ({ page }) => {
+    await mockPlintha(page);
+    await page.goto(URL);
+    await expect(page.locator('[data-from="ottoman"]')).toHaveText(/^From \$/);
+    const before = await page.getByTestId('dims').textContent();
+    await page.locator('#grid').getByRole('button', { name: 'Add to your sofa' }).last().click();
+    await expect(page.locator('#status')).toContainText('Ottoman added');
+    await expect(page.locator('#count')).not.toHaveText('6 of 8 modules');
+    expect(before).toBeTruthy();
+  });
+
+  test('store: a ready-made layout loads its preset and fabric', async ({ page }) => {
+    await mockPlintha(page);
+    await page.goto(URL);
+    await expect(page.locator('[data-lay-price="1"]')).toHaveText(/^\$/);
+    await page.locator('#lays').getByRole('button', { name: 'Start from this layout' }).nth(1).click();
+    await expect(page.locator('#status')).toContainText('U shape in Velvet Ink loaded');
+    await expect(page.locator('input[name="fabric"][value="Velvet Ink"]')).toBeChecked();
+    await expect(page.locator('body')).toHaveAttribute('data-fabric', 'velvet-ink');
+  });
+
+  test('store: fabric cards show the surcharge from Shopify and set the fabric', async ({ page }) => {
+    await mockPlintha(page);
+    await page.goto(URL);
+    await expect(page.locator('[data-fab-price="Boucle Chalk"]')).toHaveText('Included in the module price');
+    await expect(page.locator('[data-fab-price="Wool Moss"]')).toHaveText(/^Adds \$\d+ per module$/);
+    await page.getByRole('button', { name: 'Use Linen Sand' }).click();
+    await expect(page.locator('input[name="fabric"][value="Linen Sand"]')).toBeChecked();
+  });
+
+  test('store: the newsletter is a demo and saves nothing', async ({ page }) => {
+    await mockPlintha(page);
+    await page.goto(URL);
+    await page.getByLabel('Email address').fill('nope');
+    await page.getByRole('button', { name: 'Subscribe' }).click();
+    await expect(page.locator('#news-msg')).toHaveText('Please enter a valid email address.');
+    await page.getByLabel('Email address').fill('sam@example.com');
+    await page.getByRole('button', { name: 'Subscribe' }).click();
+    await expect(page.locator('#news-msg')).toContainText('demo store');
+  });
 });

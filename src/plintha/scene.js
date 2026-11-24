@@ -20,8 +20,9 @@ const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
 const M = (cm) => cm / 100;
 
 export async function createPlinthaScene(canvas, { tier, reducedMotion, onReady, onFallback, onPick, onGhost, onAssembled }) {
-  const stage = createStage(canvas, { tier, fov: 32, createRenderer: (c, tr) => {
-    const r = new THREE.WebGLRenderer({ canvas: c, antialias: tr !== 'low', powerPreference: 'high-performance' });
+  let active = true;
+  const stage = createStage(canvas, { tier, fov: 32, shouldRender: () => active, createRenderer: (c, tr) => {
+    const r = new THREE.WebGLRenderer({ canvas: c, antialias: true, powerPreference: 'high-performance' });
     r.toneMapping = THREE.AgXToneMapping;
     r.toneMappingExposure = 1.0;
     r.outputColorSpace = THREE.SRGBColorSpace;
@@ -378,6 +379,7 @@ export async function createPlinthaScene(canvas, { tier, reducedMotion, onReady,
     setFabric(name) { setFabricMaterial(name); },
     setGhosts(layout, kind) { setGhosts(layout, kind); },
     hoverAt(x, y) { hoverSlot = x == null ? null : slotAt(x, y); return hoverSlot; },
+    setActive(on) { active = !!on; },
     setView(v) { if (VIEW[v] && v !== view) { view = v; frameView(); } },
     setLight(v) { lightT = clamp(v); },
     select(id) {

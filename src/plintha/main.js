@@ -14,6 +14,7 @@ import { FABRICS, encode, decode } from './urlstate.js';
 import { placements, footprint, bounds } from './positions.js';
 import { planSvg } from './plan.js';
 import { KINDS, insertAt, removeId, moveTo, move, swap, duplicate, handles, roomFit, createHistory, PRESETS, indexOfId } from './edit.js';
+import { fromPrice, fabricSurcharge, FABRIC_INFO, LAYOUTS, layoutCard } from './store.js';
 
 const $ = (s) => document.querySelector(s);
 const body = document.body;
@@ -23,8 +24,6 @@ const SWATCH = { 'Boucle Chalk': '#e9e5dc', 'Wool Moss': '#5d6747', 'Linen Sand'
 const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 const money = (n, c = 'USD') => new Intl.NumberFormat('en-US', { style: 'currency', currency: c, maximumFractionDigits: 0 }).format(n);
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
-const build = (steps) => steps.reduce((l, [m, s]) => (l ? place(l, m, s) : l), EMPTY);
-const SHOWROOM = build([['arm_left', 'end'], ['armless', 'end'], ['armless', 'end'], ['corner', 'end'], ['armless', 'return'], ['arm_right', 'return'], ['ottoman', 'free']]);
 const START = PRESETS.find((p) => p.id === 'corner').layout;
 
 // --- State --------------------------------------------------------------------
@@ -125,6 +124,81 @@ function add(kind, slot = defaultSlot(kind)) {
   return commit({ layout: next, sel: id });
 }
 
+// --- Store sections around the configurator ----------------------------------------
+const toBuild = () => $('#build').scrollIntoView({ behavior: reduced ? 'auto' : 'smooth' });
+const BLURB = {
+  armless: 'The middle of any run. Add as many as the room allows.',
+  corner: 'Turns the sofa through 90 degrees. Starts the return run.',
+  arm_left: 'Closes the left end of a run with a low wide arm.',
+  arm_right: 'Closes the right end of a run with a low wide arm.',
+  chaise: 'A long seat to stretch out on. Ends a run.',
+  ottoman: 'A free footstool. It also works as an extra seat.',
+};
+$('#grid').innerHTML = KINDS.map((k) => `<li class="p-card-p">
+  <img src="/plintha/stills/module-${k}.webp" alt="The PLINTHA ${NAME[k].toLowerCase()} module in Boucle Chalk on its oak plinth." loading="lazy" width="900" height="1125">
+  <div class="p-card-b"><h3>${NAME[k]}</h3><p class="p-card-size">${WIDTH[k]} × ${DEPTH[k]} cm</p><p>${BLURB[k]}</p>
+  <p class="p-card-price" data-from="${k}"></p>
+  <button type="button" class="p-card-btn" data-add-kind="${k}">Add to your sofa</button></div></li>`).join('');
+$('#grid').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-add-kind]');
+  if (!b) return;
+  if (add(b.dataset.addKind)) say(`${NAME[b.dataset.addKind]} added to your layout.`);
+  toBuild();
+});
+function setFabric(f) {
+  if (!FABRIC_INFO[f]) return;
+  fabric = f;
+  const r = document.querySelector(`input[name="fabric"][value="${f}"]`);
+  if (r) r.checked = true;
+  scene?.setFabric(fabric);
+  render();
+}
+$('#lays').innerHTML = LAYOUTS.map((l, i) => `<li class="p-lay">
+  <img src="/plintha/stills/${l.photo}.webp" alt="The ${layoutCard(l, {}).name.toLowerCase()} layout in ${l.fabric}." loading="lazy" width="1200" height="900">
+  <div class="p-lay-b"><h3>${layoutCard(l, {}).name} <span>in ${l.fabric}</span></h3><p>${l.note}</p>
+  <p class="p-lay-meta"><span data-lay-size="${i}"></span><span data-lay-price="${i}"></span></p>
+  <button type="button" class="p-card-btn" data-lay="${i}">Start from this layout</button></div></li>`).join('');
+$('#lays').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-lay]');
+  if (!b) return;
+  const l = LAYOUTS[+b.dataset.lay], c = layoutCard(l, products);
+  setFabric(l.fabric);
+  if (commit({ layout: c.layout, sel: null }, 'layout_card')) say(`${c.name} in ${l.fabric} loaded. Edit any piece.`);
+  toBuild();
+});
+$('#fabs').innerHTML = FABRICS.map((f) => `<li class="p-fab">
+  <img src="/plintha/stills/${FABRIC_INFO[f].photo}.webp" alt="Close view of ${f} on a PLINTHA seat cushion." loading="lazy" width="1200" height="900">
+  <div class="p-fab-b"><h3><span class="p-sw-dot" style="--sw:${SWATCH[f]}"></span>${f}</h3><p>${FABRIC_INFO[f].made}</p><p>${FABRIC_INFO[f].care}</p>
+  <p class="p-fab-price" data-fab-price="${f}"></p>
+  <button type="button" class="p-card-btn" data-use-fabric="${f}">Use ${f}</button></div></li>`).join('');
+$('#fabs').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-use-fabric]');
+  if (!b) return;
+  setFabric(b.dataset.useFabric);
+  say(`${b.dataset.useFabric} chosen for every module.`);
+  toBuild();
+});
+$('#news-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const input = $('#news-email'), msg = $('#news-msg');
+  if (!input.checkValidity() || !input.value) { msg.textContent = 'Please enter a valid email address.'; input.focus(); return; }
+  msg.textContent = 'Thank you. This is a demo store. We did not save your email.';
+  input.value = '';
+});
+function renderStore() {
+  document.querySelectorAll('[data-from]').forEach((el) => { const p = fromPrice(products, el.dataset.from); el.textContent = p ? `From ${money(p.amount, p.currencyCode)}` : ''; });
+  LAYOUTS.forEach((l, i) => {
+    const c = layoutCard(l, products);
+    $(`[data-lay-size="${i}"]`).textContent = `${c.modules} modules · ${c.size}`;
+    $(`[data-lay-price="${i}"]`).textContent = c.price ? money(c.price.amount, c.price.currencyCode) : '';
+  });
+  document.querySelectorAll('[data-fab-price]').forEach((el) => {
+    const x = fabricSurcharge(products, el.dataset.fabPrice);
+    el.textContent = x === null ? '' : x ? `Adds ${money(x)} per module` : 'Included in the module price';
+  });
+  document.querySelectorAll('[data-use-fabric]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.useFabric === fabric)));
+}
+
 // --- Builder markup ---------------------------------------------------------------
 const icon = (kind) => {
   const w = WIDTH[kind], d = DEPTH[kind], s = 0.3;
@@ -159,10 +233,8 @@ $('#palette').addEventListener('click', (e) => {
   add(b.dataset.kind);
 });
 $('#fabrics').addEventListener('change', (e) => {
-  fabric = e.target.value;
-  scene?.setFabric(fabric);
+  setFabric(e.target.value);
   track('fabric', { fabric });
-  render();
 });
 $('#list').addEventListener('click', (e) => {
   const r = e.target.closest('.p-rm');
@@ -300,6 +372,7 @@ function handlePoints(l) {
 
 // --- Render -------------------------------------------------------------------------------
 function render() {
+  renderStore();
   const layout = layoutNow();
   const ps = placements(layout);
   const d = dimensions(layout);
@@ -364,6 +437,8 @@ window.addEventListener('keydown', (e) => {
   }
 });
 
+// The view tools and plus marks show only while the configurator covers the middle of the screen.
+new IntersectionObserver(([en]) => body.classList.toggle('tools-on', en.isIntersecting), { rootMargin: '-40% 0px -40% 0px' }).observe($('#build'));
 new IntersectionObserver(([en]) => { buildVisible = en.isIntersecting; body.classList.toggle('in-build', buildVisible); if (!buildVisible) closeMenu(); renderSel(); }, { threshold: 0.05 }).observe($('#build'));
 
 // --- Drag from the palette into the room (desktop) ------------------------------------
@@ -557,7 +632,7 @@ async function start3d() {
     });
     if (!scene) return fallback();
     scene.setFabric(fabric);
-    scene.showLayout(SHOWROOM, { drop: false });
+    scene.showLayout(layoutNow(), { drop: false });
     scene.assemble();
     roomPointer($('#gl'));
     requestAnimationFrame(frame);
@@ -567,7 +642,7 @@ async function start3d() {
   }
 }
 
-// Scroll: each chapter picks a camera view. The evening chapter scrubs the light. The builder swaps in your layout.
+// Scroll: the room only shows inside the configurator. Entering it swaps in your layout. Leaving it stops drawing.
 async function scrollDrive() {
   const [{ gsap }, { ScrollTrigger }] = await Promise.all([import('gsap'), import('gsap/ScrollTrigger')]);
   gsap.registerPlugin(ScrollTrigger);
@@ -578,33 +653,39 @@ async function scrollDrive() {
     gsap.ticker.add((time) => lenis.raf(time * 1000));
     gsap.ticker.lagSmoothing(0);
   }
-  const st = {};
+  let st = null;
   const direct = () => {
-    if (!st.build) return;
-    const inBuild = st.build.isActive;
+    if (!st) return;
+    const inBuild = st.isActive;
+    scene.setActive?.(inBuild);
+    body.classList.toggle('p-3d-on', inBuild);
     if (inBuild !== (mode === 'build')) {
       mode = inBuild ? 'build' : 'showroom';
       body.dataset.mode = mode;
-      scene.showLayout(inBuild ? layoutNow() : SHOWROOM);
+      scene.showLayout(layoutNow());
       scene.select(inBuild ? sel : null);
       if (!inBuild) { armed = null; scene.setGhosts(layoutNow(), null); closeMenu(); }
       renderSel();
     }
-    let view = 'hero';
-    for (const k of ['plinth', 'fabric', 'evening']) if (st[k].isActive) view = k;
-    if (inBuild) view = 'build';
-    scene.setView(view);
-    if (inBuild) { if (manualLight !== null) setLight(manualLight); else setLight(0); }
-    else setLight(st.evening.isActive ? Math.min(1, st.evening.progress * 1.8) : 0);
+    scene.setView('build');
+    setLight(manualLight !== null ? manualLight : 0);
   };
-  for (const k of ['plinth', 'fabric', 'evening']) st[k] = ScrollTrigger.create({ trigger: `#${k}`, start: 'top 60%', end: 'bottom 40%', onUpdate: direct, onToggle: direct });
-  st.build = ScrollTrigger.create({ trigger: '#build', start: 'top 70%', end: 'bottom top', onUpdate: direct, onToggle: direct });
+  st = ScrollTrigger.create({ trigger: '#build', start: 'top bottom', end: 'bottom top', onUpdate: direct, onToggle: direct });
   direct();
 }
 
 render();
 loadProducts();
-const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 200));
-if (document.readyState === 'complete') idle(start3d);
-else window.addEventListener('load', () => idle(start3d));
+// The 3D room is heavy to set up. It waits for the visitor's first move (scroll, touch, pointer or key).
+// ?gl starts it straight away (tests and screenshots).
+let started = false;
+const WAKE = ['pointermove', 'pointerdown', 'touchstart', 'wheel', 'scroll', 'keydown'];
+const kick = () => {
+  if (started) return;
+  started = true;
+  WAKE.forEach((ev) => window.removeEventListener(ev, kick, true));
+  (window.requestIdleCallback || ((fn) => setTimeout(fn, 1)))(start3d, { timeout: 300 });
+};
+WAKE.forEach((ev) => window.addEventListener(ev, kick, { capture: true, passive: true }));
+if (new URLSearchParams(location.search).has('gl')) window.addEventListener('load', kick);
 if (reduced) body.dataset.room = 'assembled';
