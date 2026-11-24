@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>VANTRIK Sneakers | Concept store by JLB USA</title>
+<meta name="description" content="VANTRIK is a fictional sneaker brand. This concept store by JLB USA lets you color your own pair in 3D on a live Shopify catalog and cart.">
+<meta name="theme-color" content="#e3e3de">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"></noscript>
+<link rel="preload" as="image" href="/vantrik/photos/hero.webp" fetchpriority="high">
+<script>document.documentElement.classList.add('js')</script>
+<link rel="stylesheet" href="/src/kit/kit.css">
+<link rel="stylesheet" href="/src/vantrik/style.css">
+</head>
+<body data-model="vantrik-vk1-runner">
+<p class="v-announce">Free returns for 30 days. Wear them around the house first.</p>
+<header class="v-top">
+  <a class="v-mark" href="#top" aria-label="VANTRIK home">VANTRIK</a>
+  <nav class="v-nav" aria-label="Main">
+    <a href="#shop">Shop</a><a href="#custom">Design your pair</a><a href="#made">How it's made</a><a href="#fit">Fit guide</a><a href="#journal">Journal</a>
+  </nav>
+  <details class="v-menu">
+    <summary>Menu</summary>
+    <nav aria-label="Menu"><a href="#shop">Shop</a><a href="#custom">Design your pair</a><a href="#made">How it's made</a><a href="#fit">Fit guide</a><a href="#journal">Journal</a><a href="#faq">Help</a></nav>
+  </details>
+  <span class="v-concept">Concept by JLB USA</span>
+</header>
+
+<div class="v-stage" aria-hidden="true"><canvas id="gl"></canvas></div>
+
+<main id="top">
+  <section class="v-hero">
+    <img class="v-hero-photo" src="/vantrik/photos/hero.webp" alt="The VK-1 Runner in Ember and the VK-2 Court in Chalk on concrete blocks." width="2400" height="1500" fetchpriority="high">
+    <div class="v-hero-copy">
+      <p class="v-tag">VK-1 · VK-2 · Small runs</p>
+      <h1>Shoes for days spent on your feet</h1>
+      <p class="v-lede">Two shoes. A knit runner and a leather court shoe. Or color your own pair one part at a time.</p>
+      <div class="v-ctas"><a class="v-btn" href="#shop">Shop the shoes</a><a class="v-btn v-btn-line" href="#custom">Design your pair</a></div>
+    </div>
+    <ul class="v-hero-facts" aria-label="At a glance">
+      <li><strong>268 g</strong> VK-1 in US 9</li>
+      <li><strong>30 days</strong> free returns</li>
+      <li><strong>5 parts</strong> to color</li>
+    </ul>
+  </section>
+
+  <section class="v-shop" id="shop" aria-labelledby="shop-title">
+    <div class="v-wrap">
+      <div class="v-head"><h2 id="shop-title">Shop the shoes</h2><p>Seven colorways and one pair you design yourself.</p></div>
+      <ul class="v-grid" id="grid"></ul>
+    </div>
+  </section>
+
+  <section class="v-pdp" id="shoe" data-3d data-view="pdp" aria-labelledby="pdp-name">
+    <div class="v-panel">
+      <p class="v-crumb"><span data-line>Knit runner</span> · <span data-cw-name>Bone</span></p>
+      <h2 id="pdp-name" data-name>VK-1 Runner</h2>
+      <p class="v-price"><span id="pdp-price" data-testid="pdp-price"></span></p>
+      <p class="v-desc" data-desc></p>
+      <fieldset class="v-group"><legend>Shoe</legend><div class="v-models" id="models"></div></fieldset>
+      <fieldset class="v-group"><legend>Colorway</legend><div class="v-cws" id="colorways"></div></fieldset>
+      <fieldset class="v-group"><legend>Size</legend><div class="v-sizes" id="sizes"></div></fieldset>
+      <button type="button" class="v-btn v-add-main" id="pdp-add" disabled>Add to cart</button>
+      <p class="v-status" id="status" role="status" aria-live="polite"></p>
+      <p class="v-drag">Drag the shoe to turn it.</p>
+      <div class="v-acc">
+        <details><summary>Materials</summary><p data-materials></p></details>
+        <details><summary>Fit</summary><p>True to size for most feet. Wide feet should go up half a size in the VK-2.</p></details>
+        <details><summary>Shipping and returns</summary><p>Orders ship in 2 business days. Returns are free for 30 days if the soles are clean.</p></details>
+      </div>
+    </div>
+  </section>
+
+  <section class="v-custom" id="custom" data-3d data-view="custom" aria-labelledby="custom-title">
+    <div class="v-panel v-panel-custom">
+      <p class="v-crumb">Custom VK-1</p>
+      <h2 id="custom-title">Design your pair</h2>
+      <p>Pick a part. Then pick its color. Your colors go to the workshop with the order.</p>
+      <div class="v-parts" role="tablist" aria-label="Parts" id="parts"></div>
+      <div class="v-palette" role="radiogroup" aria-label="Color" id="palette"></div>
+      <p class="v-recipe" id="recipe"></p>
+      <div class="v-row">
+        <fieldset class="v-group v-group-inline"><legend>Size</legend><select id="custom-size" aria-label="Custom pair size"></select></fieldset>
+        <span class="v-price" id="custom-price" data-testid="custom-price"></span>
+      </div>
+      <div class="v-row">
+        <button type="button" class="v-btn v-btn-line" id="explode" aria-pressed="false">Take it apart</button>
+        <button type="button" class="v-btn" id="custom-add" disabled>Add custom pair</button>
+      </div>
+      <ol class="v-layers" id="layers" hidden>
+        <li><strong>Upper</strong> Knit with a firmer weave at the toe and heel.</li>
+        <li><strong>Insole</strong> A removable 4 mm foam pad.</li>
+        <li><strong>Midsole</strong> The foam that takes each step.</li>
+        <li><strong>Outsole</strong> Rubber lugs where your foot lands and pushes off.</li>
+      </ol>
+      <p class="v-status" id="custom-status" role="status" aria-live="polite"></p>
+    </div>
+  </section>
+
+  <section class="v-made" id="made" aria-labelledby="made-title">
+    <div class="v-wrap v-split">
+      <div>
+        <p class="v-label">How it's made</p>
+        <h2 id="made-title">What the foam does</h2>
+        <p>Each step squashes the midsole a little. The foam springs back before your next step. Softer foam feels kind on day one. It also wears out sooner.</p>
+        <p>Our foam sits in the middle. It feels firm when new. After a week it shapes to your stride. It keeps that feel for about 500 miles.</p>
+        <dl class="v-specs">
+          <div><dt>Heel height</dt><dd>33 mm</dd></div>
+          <div><dt>Toe height</dt><dd>22 mm</dd></div>
+          <div><dt>Drop</dt><dd>11 mm</dd></div>
+          <div><dt>Weight</dt><dd>268 g</dd></div>
+        </dl>
+      </div>
+      <img class="v-made-img" src="/vantrik/photos/made.webp" alt="Close view of the VK-1 knit upper and foam midsole." loading="lazy" width="1200" height="900">
+    </div>
+  </section>
+
+  <section class="v-fit" id="fit" aria-labelledby="fit-title">
+    <div class="v-wrap v-split">
+      <div>
+        <p class="v-label">Fit guide</p>
+        <h2 id="fit-title">Find your size</h2>
+        <p>Stand on a sheet of paper. Mark the tip of your longest toe and the back of your heel. Measure the gap in centimeters.</p>
+        <form class="v-fit-form" id="fit-form" novalidate>
+          <label for="foot">Foot length in cm</label>
+          <div><input id="foot" type="number" inputmode="decimal" min="20" max="32" step="0.1" placeholder="26.5"><button type="submit" class="v-btn">Find my size</button></div>
+          <p class="v-fit-out" id="fit-out" role="status" aria-live="polite"></p>
+        </form>
+      </div>
+      <div class="v-table-wrap"><table class="v-table" id="size-table"></table></div>
+    </div>
+  </section>
+
+  <section class="v-reviews" aria-labelledby="rev-title">
+    <div class="v-wrap">
+      <div class="v-head"><h2 id="rev-title">What people say</h2><p class="v-small">Sample reviews. VANTRIK is a concept brand.</p></div>
+      <ul class="v-rev">
+        <li><p class="v-stars" aria-label="5 out of 5 stars">★★★★★</p><blockquote>I work twelve-hour shifts in the VK-1. My feet feel fine at the end of the day.</blockquote><p class="v-who">Jordan T. · VK-1 Runner, Night</p></li>
+        <li><p class="v-stars" aria-label="5 out of 5 stars">★★★★★</p><blockquote>The leather on the VK-2 softened in a week. They look better with a few scuffs.</blockquote><p class="v-who">Sam O. · VK-2 Court, Chalk</p></li>
+        <li><p class="v-stars" aria-label="4 out of 5 stars">★★★★☆</p><blockquote>I designed a pair in sky blue and orange. They came out just like the screen.</blockquote><p class="v-who">Lena M. · Custom VK-1</p></li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="v-journal" id="journal" aria-labelledby="jr-title">
+    <div class="v-wrap">
+      <div class="v-head"><h2 id="jr-title">Journal</h2><p>Notes on shoes and the people who wear them out.</p></div>
+      <ul class="v-posts">
+        <li><img src="/vantrik/photos/journal-1.webp" alt="" loading="lazy" width="1200" height="900"><h3>How to clean knit uppers</h3><p>Cold water and a soft brush do most of the work. Skip the washing machine.</p>
+          <details><summary>Read more</summary><p>Take the laces and insoles out first. Brush the knit with cold soapy water. Rinse with a damp cloth. Stuff the shoes with paper and let them dry away from heat. Heat can warp the foam.</p></details></li>
+        <li><img src="/vantrik/photos/journal-2.webp" alt="" loading="lazy" width="1200" height="900"><h3>When to replace your shoes</h3><p>Look at the foam. Not the upper.</p>
+          <details><summary>Read more</summary><p>Most foam lasts 400 to 600 miles. Press your thumb into the midsole by the heel. Fine creases are normal. Deep wrinkles mean the foam has gone flat. Your knees will notice before your eyes do.</p></details></li>
+        <li><img src="/vantrik/photos/journal-3.webp" alt="" loading="lazy" width="1200" height="900"><h3>Why we make small runs</h3><p>We make each colorway in batches of 600 pairs. Then we stop.</p>
+          <details><summary>Read more</summary><p>Small runs mean less dead stock. They also let us change things between batches. The VK-1 heel tab got stiffer after the first run. A reader asked for it.</p></details></li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="v-faq" id="faq" aria-labelledby="faq-title">
+    <div class="v-wrap v-narrow">
+      <h2 id="faq-title">Questions</h2>
+      <details><summary>How long does a custom pair take?</summary><p>About three weeks. We make each custom pair to order.</p></details>
+      <details><summary>Can I return a custom pair?</summary><p>Custom pairs can be exchanged for a different size. They cannot be refunded.</p></details>
+      <details><summary>Are the shoes vegan?</summary><p>The VK-1 is. The VK-2 uses cow leather.</p></details>
+      <details><summary>Do you ship outside the US?</summary><p>Not yet. We ship to all 50 states.</p></details>
+      <details><summary>How do I care for leather?</summary><p>Wipe it with a damp cloth. Use leather cream twice a year.</p></details>
+    </div>
+  </section>
+
+  <section class="v-news" aria-labelledby="news-title">
+    <div class="v-wrap v-narrow">
+      <h2 id="news-title">Get told about new runs</h2>
+      <p>One email when a new colorway is ready. Nothing else.</p>
+      <form class="v-news-form" id="news-form" novalidate>
+        <label for="news-email">Email address</label>
+        <div><input id="news-email" type="email" autocomplete="email" placeholder="you@example.com"><button type="submit" class="v-btn">Sign up</button></div>
+        <p class="v-news-msg" id="news-msg" role="status" aria-live="polite"></p>
+      </form>
+    </div>
+  </section>
+</main>
+
+<footer class="v-foot">
+  <div class="v-wrap v-foot-cols">
+    <div><p class="v-mark">VANTRIK</p><p>Shoes for days spent on your feet.</p><p>(404) 555-0147</p></div>
+    <div><h3>Shop</h3><a href="#shop">All shoes</a><a href="#custom">Design your pair</a><a href="#fit">Fit guide</a></div>
+    <div><h3>Help</h3><a href="#faq">Shipping</a><a href="#faq">Returns</a><a href="#faq">Questions</a></div>
+    <div><h3>About</h3><a href="#made">How it's made</a><a href="#journal">Journal</a></div>
+  </div>
+  <p class="concept-foot">Concept by JLB USA. Fictional brand. Products and prices are demo data. <a href="https://jlbusa.com/">jlbusa.com</a></p>
+</footer>
+
+<div class="v-bar" role="region" aria-label="Purchase">
+  <div class="v-bar-item"><span class="v-bar-name" id="bar-name">VK-1 Runner</span><span class="v-bar-sub" id="bar-sub">Bone · US 9</span></div>
+  <span class="v-bar-price" data-testid="price" id="price"></span>
+  <button type="button" class="v-add" id="add" disabled>Add to cart</button>
+  <button type="button" class="v-checkout" id="checkout">Checkout (0)</button>
+</div>
+<div id="panel-root"></div>
+<script type="module" src="/src/vantrik/main.js"></script>
+</body>
+</html>

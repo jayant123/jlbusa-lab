@@ -26,7 +26,7 @@ export async function mockSeed(page, seedFile, { failProducts = false } = {}) {
   const cart = () => ({
     id: 'gid://shopify/Cart/s1', checkoutUrl: 'https://example.myshopify.com/cart/c/s1?key=k',
     cost: { totalAmount: { amount: String(lines.reduce((s, l) => s + l.qty * Number(byId[l.id].v.price.amount), 0)), currencyCode: 'USD' } },
-    lines: { nodes: lines.map((l, i) => ({ id: `gid://shopify/CartLine/${i}`, quantity: l.qty, attributes: [],
+    lines: { nodes: lines.map((l, i) => ({ id: `gid://shopify/CartLine/${i}`, quantity: l.qty, attributes: l.attrs || [],
       merchandise: { id: l.id, title: byId[l.id].v.selectedOptions.map((o) => o.value).join(' / '), price: byId[l.id].v.price,
         product: { title: byId[l.id].p.title }, selectedOptions: byId[l.id].v.selectedOptions } })) },
   });
@@ -38,7 +38,7 @@ export async function mockSeed(page, seedFile, { failProducts = false } = {}) {
     }
     if (query.includes('cartCreate') || query.includes('cartLinesAdd')) {
       sent.push(variables.lines);
-      for (const l of variables.lines) lines.push({ id: l.merchandiseId, qty: l.quantity });
+      for (const l of variables.lines) lines.push({ id: l.merchandiseId, qty: l.quantity, attrs: l.attributes || [] });
       const key = query.includes('cartCreate') ? 'cartCreate' : 'cartLinesAdd';
       return route.fulfill({ json: { data: { [key]: { cart: cart(), userErrors: [] } } } });
     }
