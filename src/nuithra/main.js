@@ -159,7 +159,7 @@ async function start3d() {
   try {
     const { createNuithraScene } = await import('./scene.js');
     scene = await createNuithraScene($('#gl'), {
-      tier, reducedMotion: reduced, onFallback: fallback, still: params.has('still'),
+      tier, reducedMotion: reduced, onFallback: fallback, still: params.has('still'), setting: params.get('set'),
       dragSurfaces: [...document.querySelectorAll('.n-hero, .n-chapter, .n-shop')],
       onPick: (h) => { setScent(h); track('bottle_pick', { scent: SCENTS[h].name }); },
       onReady: () => requestAnimationFrame(() => body.classList.add('gl-ready')),

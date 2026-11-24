@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import { createStage } from '../kit/stage.js';
 import { ORDER, SCENTS, sizeScale } from './scents.js';
 import { buildBottle } from './bottles.js';
+import { buildSetting } from './settings.js';
 
 const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
 const WHITE = new THREE.Color(1, 1, 1);
@@ -81,7 +82,7 @@ function labelTex(name) {
   });
 }
 
-export async function createNuithraScene(canvas, { tier, reducedMotion, onReady, onFallback, onPick, dragSurfaces = [], still = false }) {
+export async function createNuithraScene(canvas, { tier, reducedMotion, onReady, onFallback, onPick, dragSurfaces = [], still = false, setting = null }) {
   const stage = createStage(canvas, { tier, fov: 28, createRenderer: (c, tr) => {
     const r = new THREE.WebGLRenderer({ canvas: c, antialias: true, powerPreference: 'high-performance' });
     r.toneMapping = THREE.AgXToneMapping;
@@ -121,6 +122,13 @@ export async function createNuithraScene(canvas, { tier, reducedMotion, onReady,
   wallRefl.scale.y = -1;
   wallRefl.position.set(0, -0.4, -0.5);
   scene.add(wall, wallRefl, stone, lip, edge);
+  // Optional forest setting (concept alternatives). It replaces the wall and the stone shelf.
+  const forest = setting ? buildSetting(setting, { scene }) : null;
+  if (forest) {
+    [wall, wallRefl, stone, lip, edge].forEach((m) => { m.visible = false; });
+    if (forest.dark) { key.color.set(0x9fb8ff); key.intensity = 1.6; }
+    else { key.color.set(0xfff1d0); key.intensity = 5; key.position.set(-0.5, 0.8, 0.3); }
+  }
 
   // --- Bottles -------------------------------------------------------------------------------------------------
   const metal = new THREE.MeshPhysicalMaterial({ color: 0xd8b06a, metalness: 1, roughness: 0.2 });
@@ -167,6 +175,7 @@ export async function createNuithraScene(canvas, { tier, reducedMotion, onReady,
     const refl = buildBottle(s.shape, s.cap, { ...mirrorShared, glass: new THREE.MeshBasicMaterial({ color: color.clone().multiplyScalar(0.8), transparent: true, opacity: 0.42, depthWrite: false }) }).group;
     refl.scale.y = -1;
     holder.add(refl);
+    if (setting && setting !== 'pool') refl.visible = false;
     // Light pool in front of the bottle, contact shadow under it, glow behind it.
     const lightPool = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).translate(0, -0.5, 0).rotateX(-Math.PI / 2),
       new THREE.MeshBasicMaterial({ map: pool, color, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
@@ -263,6 +272,7 @@ export async function createNuithraScene(canvas, { tier, reducedMotion, onReady,
   stage.onFrame((dt, now) => {
     const sm = (rate) => Math.min(1, dt * (reducedMotion ? 60 : rate));
     const t = now - t0;
+    forest?.update(t);
     // The back light sweeps the row in the hero and settles behind the chosen bottle elsewhere.
     const sweep = view === 'hero' || view === 'light';
     const target = still ? bottles[selected].pos.x * 0.6 : sweep && !reducedMotion ? Math.sin(t * 0.32) * (narrow ? 0.16 : 0.26) : bottles[selected].pos.x;
