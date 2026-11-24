@@ -116,9 +116,13 @@ export async function createVantrikScene(canvas, { tier, reducedMotion, onReady,
   }
 
   // Wide screens put the shoe right of the panel. Phones put it above the panel.
+  // Phones: the canvas is its own viewer band, so the shoe sits in the middle of it with no offset.
+  const phone = () => canvas.clientWidth < 700;
   function frame() {
     const w = canvas.clientWidth, h = canvas.clientHeight;
-    if (w > 900) camera.setViewOffset(w, h, view === 'hero' ? 0 : -w * 0.22, 0, w, h);
+    stage.resize();
+    if (phone()) camera.clearViewOffset();
+    else if (w > 900) camera.setViewOffset(w, h, view === 'hero' ? 0 : -w * 0.22, 0, w, h);
     else camera.setViewOffset(w, h, 0, view === 'hero' ? 0 : h * 0.22, w, h);
     camera.updateProjectionMatrix();
   }
@@ -163,8 +167,18 @@ export async function createVantrikScene(canvas, { tier, reducedMotion, onReady,
     }
     shadow.material.opacity = 1 - ex * 0.6;
     const [pp, gg] = VIEW[view] || VIEW.pdp;
-    tmp.set(...pp).sub(tmp2.set(...gg)).multiplyScalar(dist() * (1 + ex * 0.25)).add(tmp2);
-    tmp2.y += ex * 0.02;
+    if (phone()) {
+      // Fit the shoe (or its spread-out layers) inside the band: distance from its bounding sphere and the
+      // narrower of the two fields of view, along the same viewing direction as the desktop view.
+      const vf = (camera.fov * Math.PI) / 180, hf = 2 * Math.atan(Math.tan(vf / 2) * camera.aspect);
+      const r = 0.158 + 0.07 * ex;
+      const d = (r / Math.sin(Math.min(vf, hf) / 2)) * 1.06;
+      tmp2.set(0, 0.048 + 0.075 * ex, 0);
+      tmp.set(...pp).sub(new THREE.Vector3(...gg)).normalize().multiplyScalar(d).add(tmp2);
+    } else {
+      tmp.set(...pp).sub(tmp2.set(...gg)).multiplyScalar(dist() * (1 + ex * 0.25)).add(tmp2);
+      tmp2.y += ex * 0.02;
+    }
     camPos.lerp(tmp, sm(2.5));
     camLook.lerp(tmp2, sm(2.5));
     camera.position.copy(camPos);

@@ -2,6 +2,7 @@
    JetBrains Mono for specs and labels. The graphic system borrows from a size chart: thin rules with tick marks,
    numbered labels and measurements set in mono. */
 :root{
+  --band:min(44svh,380px);
   --v-bg:#e3e3de; --v-card:#f1f1ee; --v-ink:#111214; --v-mute:#56585c; --v-line:rgba(17,18,20,.16); --v-sig:#e8471b; --v-sig-ink:#111214;
   --v-dark:#121315; --v-dark-ink:#ecece8; --v-dark-mute:#a8aaad;
   --v-sans:'Archivo',system-ui,sans-serif; --v-mono:'JetBrains Mono',ui-monospace,monospace;
@@ -215,7 +216,12 @@ details[open]>summary::after{content:"−"}
   .v-hero-facts{order:3;padding:18px 0 24px;gap:10px 22px}.v-hero-facts strong{font-size:20px}
   .v-grid{gap:10px}
   .v-card-body{padding:10px 10px 12px}.v-card h3{font-size:1rem}.v-card-btn{font-size:12.5px;padding:10px 8px}
-  .v-pdp,.v-custom{padding:48vh 0 4vh;min-height:auto}
+  /* Phones: the 3D is a viewer band under the header. It shows only while a 3D section is in view. The panel
+     scrolls beneath it, so the band never covers the panel and the sticky bar never covers the shoe. */
+  .v-stage{inset:var(--hdr,52px) 0 auto 0;height:var(--band);z-index:15;opacity:0;visibility:hidden;transition:opacity .25s,visibility .25s;border-bottom:1px solid var(--v-line);touch-action:pan-y}
+  .v-stage::before{background-position:50% 55%}
+  body.v-band .v-stage{opacity:1;visibility:visible;pointer-events:auto}
+  .v-pdp,.v-custom{padding:calc(var(--band) + 10px) 0 4vh;min-height:auto}
   .v-panel{max-width:none;border-left:0;border-right:0;padding:20px 16px}
   .v-palette{grid-template-columns:repeat(6,minmax(0,1fr))}
   .v-foot-cols{grid-template-columns:minmax(0,1fr)}

@@ -224,7 +224,7 @@ async function start3d() {
     const { createVantrikScene } = await import('./scene.js');
     scene = await createVantrikScene($('#gl'), {
       tier, reducedMotion: reduced, onFallback: fallback, still: params.has('still'),
-      dragSurfaces: $$('[data-3d]'),
+      dragSurfaces: [...$$('[data-3d]'), $('.v-stage')],
       onReady: () => requestAnimationFrame(() => body.classList.add('gl-ready')),
     });
     if (!scene) return fallback();
@@ -239,6 +239,26 @@ async function start3d() {
 }
 
 // The canvas sits behind the page. It only draws while a 3D section is on screen. The view follows the section.
+// Phones: show the viewer band while a 3D section passes under it.
+function watchBand() {
+  const top = $('.v-top'), stageEl = $('.v-stage');
+  const setHdr = () => document.documentElement.style.setProperty('--hdr', `${top.getBoundingClientRect().height}px`);
+  new ResizeObserver(setHdr).observe(top);
+  setHdr();
+  let raf = 0;
+  const check = () => {
+    raf = 0;
+    const h = top.getBoundingClientRect().bottom, b = h + stageEl.getBoundingClientRect().height;
+    const on = matchMedia('(max-width: 700px)').matches && $$('[data-3d]').some((el) => { const r = el.getBoundingClientRect(); return r.top < b - 40 && r.bottom > h + 80; });
+    body.classList.toggle('v-band', on);
+  };
+  const ask = () => { if (!raf) raf = requestAnimationFrame(check); };
+  addEventListener('scroll', ask, { passive: true });
+  addEventListener('resize', ask);
+  check();
+}
+watchBand();
+
 function watch3d() {
   const seen = new Map();
   const io = new IntersectionObserver((entries) => {
