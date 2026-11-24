@@ -43,19 +43,52 @@ test.describe('NUITHRA', () => {
     await page.getByRole('button', { name: 'Add discovery set' }).click();
     await expect(page.getByRole('button', { name: /Checkout \(2\)/ })).toBeVisible();
     expect(shop.sent).toHaveLength(2);
+    expect(shop.sent[1][0].attributes).toEqual([{ key: 'Scents', value: 'Fig Night, Amber Hour, Smoke Garden' }]);
     await page.getByRole('button', { name: /Checkout \(2\)/ }).click();
     const dialog = page.getByRole('dialog');
     await expect(dialog).toContainText('NUITHRA Fig Night');
     await expect(dialog).toContainText('NUITHRA Discovery Set');
   });
 
-  test('compares all three scents', async ({ page }) => {
+  test('compares all five scents', async ({ page }) => {
     await mock(page);
     await page.goto(URL);
     const chart = page.getByRole('img', { name: /Scent profiles/ });
     await expect(chart).toBeVisible();
-    for (const n of ['Amber Hour', 'Fig Night', 'Smoke Garden']) await expect(page.locator('#compare')).toContainText(n);
+    for (const n of ['Salt Iris', 'Fig Night', 'Amber Hour', 'Smoke Garden', 'Vetiver Rain']) await expect(page.locator('#compare')).toContainText(n);
     await expect(page.locator('#pyramid')).toContainText('Labdanum');
+    await expect(page.locator('#pyramid')).toContainText('Oakmoss');
+  });
+
+  test('the new scents have their own prices and notes', async ({ page }) => {
+    await mock(page);
+    await page.goto(URL);
+    await scent(page, 'Vetiver Rain');
+    await expect(page.getByTestId('price')).toHaveText('$148');
+    await expect(page.locator('[data-list="heart"]')).toHaveText('Vetiver · Geranium');
+    await expect(page.locator('[data-name]')).toHaveText('Vetiver Rain');
+    await scent(page, 'Salt Iris');
+    await expect(page.locator('[data-list="top"]')).toHaveText('Sea salt · Pear');
+    await expect(page.locator('[data-bottle]')).toContainText('obelisk');
+  });
+
+  test('discovery set: pick any three', async ({ page }) => {
+    const shop = await mock(page);
+    await page.goto(URL);
+    const picks = page.getByRole('group', { name: 'Discovery set scents' });
+    const setBtn = page.getByRole('button', { name: 'Add discovery set' });
+    await expect(setBtn).toBeEnabled();
+    await picks.getByRole('button', { name: /Smoke Garden/ }).click();
+    await expect(page.locator('#set-count')).toHaveText('Pick 1 more.');
+    await expect(setBtn).toBeDisabled();
+    await picks.getByRole('button', { name: /Salt Iris/ }).click();
+    await expect(picks.getByRole('button', { name: /Salt Iris/ })).toHaveAttribute('aria-pressed', 'true');
+    // A fourth pick replaces the oldest one (Fig Night).
+    await picks.getByRole('button', { name: /Vetiver Rain/ }).click();
+    await expect(picks.getByRole('button', { name: /Fig Night/ })).toHaveAttribute('aria-pressed', 'false');
+    await setBtn.click();
+    await expect(page.getByRole('button', { name: /Checkout \(1\)/ })).toBeVisible();
+    expect(shop.sent[0][0].attributes).toEqual([{ key: 'Scents', value: 'Salt Iris, Amber Hour, Vetiver Rain' }]);
   });
 
   test('when Shopify is down the page still renders and offers a retry', async ({ page }) => {

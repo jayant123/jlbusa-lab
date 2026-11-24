@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex">
 <title>NUITHRA Eau de Parfum | Concept store by JLB USA</title>
-<meta name="description" content="NUITHRA is a fictional fragrance house. This concept store by JLB USA shows each scent unfolding in 3D on a live Shopify catalog and cart.">
-<meta name="theme-color" content="#140a12">
+<meta name="description" content="NUITHRA is a fictional fragrance house. This concept store by JLB USA shows five bottles of colored glass in 3D on a live Shopify catalog and cart.">
+<meta name="theme-color" content="#070406">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Display&family=Schibsted+Grotesk:wght@400;500;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 <noscript><link href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Display&family=Schibsted+Grotesk:wght@400;500;600&display=swap" rel="stylesheet"></noscript>
@@ -18,7 +18,7 @@
 <body data-scent="nuithra-amber-hour">
 <header class="n-top">
   <a class="n-mark" href="#top" aria-label="NUITHRA, back to top">NUITHRA</a>
-  <nav class="n-nav" aria-label="Sections"><a href="#notes">Notes</a><a href="#shop">Shop</a></nav>
+  <nav class="n-nav" aria-label="Sections"><a href="#glass">Glass</a><a href="#notes">Notes</a><a href="#shop">Shop</a></nav>
   <span class="n-concept">Concept by JLB USA</span>
 </header>
 
@@ -30,53 +30,59 @@
 <main id="top">
   <section class="n-hero">
     <div class="n-hero-copy">
-      <p class="n-eyebrow">Eau de parfum · Three scents · Concept</p>
-      <h1>Three scents for after dark</h1>
-      <p class="n-lede">Every NUITHRA scent opens, settles and stays in three stages. Scroll to meet each one in turn. Then choose your bottle.</p>
-      <div class="n-quick" role="group" aria-label="Preview a scent" id="quick"></div>
+      <p class="n-eyebrow">Eau de parfum · Five scents · Concept</p>
+      <h1>Five scents in five colors of glass</h1>
+      <p class="n-lede">Each NUITHRA scent has a bottle of its own. The glass takes the color of the perfume inside. Choose one and watch the light move through it.</p>
+      <div class="n-quick" role="group" aria-label="Choose a bottle" id="quick"></div>
+      <p class="n-hint"><span class="n-hint-wide">Click a bottle to bring it forward.</span><span class="n-hint-narrow">Tap a bottle to bring it forward.</span></p>
     </div>
   </section>
 
-  <div id="notes">
-    <section class="n-tier" data-tier="top" aria-labelledby="t-top">
-      <div class="n-card">
-        <p class="n-time">First 15 minutes</p>
-        <h2 id="t-top">Top notes</h2>
-        <p class="n-list" data-list="top"></p>
-        <p>The first impression. Bright and quick to fade.</p>
-      </div>
-    </section>
-    <section class="n-tier" data-tier="heart" aria-labelledby="t-heart">
-      <div class="n-card">
-        <p class="n-time">The first hours</p>
-        <h2 id="t-heart">Heart notes</h2>
-        <p class="n-list" data-list="heart"></p>
-        <p>The character of the scent. It holds close to the skin for hours.</p>
-      </div>
-    </section>
-    <section class="n-tier" data-tier="base" aria-labelledby="t-base">
-      <div class="n-card">
-        <p class="n-time">Six hours and on</p>
-        <h2 id="t-base">Base notes</h2>
-        <p class="n-list" data-list="base"></p>
-        <p>The trail it leaves. Warm and slow. It is what people remember.</p>
-      </div>
-    </section>
-  </div>
+  <section class="n-chapter" id="glass" data-view="glass" aria-labelledby="glass-title">
+    <div class="n-card">
+      <p class="n-num">01 · The bottle</p>
+      <h2 id="glass-title">Pressed from heavy glass</h2>
+      <p class="n-bottle-line" data-bottle></p>
+      <p>Every bottle is pressed in one piece. The base is 12 mm thick. Turn it and the edges catch the light.</p>
+    </div>
+  </section>
+
+  <section class="n-chapter" id="light" data-view="light" aria-labelledby="light-title">
+    <div class="n-card">
+      <p class="n-num">02 · The color</p>
+      <h2 id="light-title">The glass is the color of the scent</h2>
+      <p>Each bottle is tinted to match its perfume. Light passes through and leaves that color on the stone.</p>
+    </div>
+  </section>
+
+  <section class="n-chapter" id="notes" data-view="notes" aria-labelledby="notes-title">
+    <div class="n-card n-card-notes">
+      <p class="n-num">03 · The scent</p>
+      <h2 id="notes-title" data-name>Amber Hour</h2>
+      <p class="n-mood" data-mood></p>
+      <dl class="n-tiers">
+        <div><dt>Top notes <span>First 15 minutes</span></dt><dd data-list="top"></dd></div>
+        <div><dt>Heart notes <span>The first hours</span></dt><dd data-list="heart"></dd></div>
+        <div><dt>Base notes <span>Six hours and on</span></dt><dd data-list="base"></dd></div>
+      </dl>
+    </div>
+  </section>
 
   <section class="n-shop" id="shop" aria-labelledby="shop-title">
     <div class="n-panel">
-      <h2 id="shop-title">Choose your scent</h2>
+      <h2 id="shop-title">Choose your bottle</h2>
       <fieldset class="n-group"><legend>Scent</legend><div class="n-scents" id="scents"></div></fieldset>
       <fieldset class="n-group"><legend>Size</legend><div class="n-sizes" id="sizes"></div></fieldset>
       <p class="n-status" id="status" role="status" aria-live="polite"></p>
-      <div class="n-compare">
-        <h3>Compare the three</h3>
-        <div id="compare"></div>
-      </div>
       <div class="n-set">
-        <div><h3>Discovery set</h3><p>All three scents in 8 ml sprays. A good way to choose.</p></div>
-        <div class="n-set-buy"><span id="set-price" data-testid="set-price"></span><button type="button" class="n-set-add" id="set-add" disabled>Add discovery set</button></div>
+        <div class="n-set-head"><h3>Discovery set</h3><span id="set-price" data-testid="set-price"></span></div>
+        <p>Three scents of your choice in 8 ml sprays. <span id="set-count">Pick three.</span></p>
+        <div class="n-picks" role="group" aria-label="Discovery set scents" id="picks"></div>
+        <button type="button" class="n-set-add" id="set-add" disabled>Add discovery set</button>
+      </div>
+      <div class="n-compare">
+        <h3>Compare the five</h3>
+        <div id="compare"></div>
       </div>
     </div>
   </section>

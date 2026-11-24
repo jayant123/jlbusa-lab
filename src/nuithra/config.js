@@ -3,7 +3,7 @@ export default {
   brand: 'NUITHRA',
   domain: 'nuithra-concept-by-jlb-usa.myshopify.com',
   token: '52972912a16c04843e5a65231e78c3f6',
-  handles: ['nuithra-amber-hour', 'nuithra-fig-night', 'nuithra-smoke-garden', 'nuithra-discovery-set'],
+  handles: ['nuithra-amber-hour', 'nuithra-fig-night', 'nuithra-smoke-garden', 'nuithra-salt-iris', 'nuithra-vetiver-rain', 'nuithra-discovery-set'],
   password: 'nuithra-demo',
   bookingUrl: 'https://portal.jlbusa.com/widget/booking/M8KowYvfgMMB7YiGggLu',
   cartKey: 'nuithra.cart',

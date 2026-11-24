@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { SCENTS, TIERS, FAMILIES, SIZES, sizeScale, scentOf, botanicalCount } from '../../src/nuithra/scents.js';
+import { SCENTS, ORDER, TIERS, FAMILIES, SIZES, SHAPES, sizeScale, scentOf, discoveryAttrs } from '../../src/nuithra/scents.js';
 
 const seed = JSON.parse(readFileSync(resolve(process.cwd(), 'seed/nuithra.json'), 'utf8'));
 
@@ -9,17 +9,24 @@ describe('NUITHRA scents', () => {
   it('describes every fragrance in the store, and only those', () => {
     const handles = seed.products.filter((p) => p.type === 'Eau de parfum').map((p) => p.handle);
     expect(Object.keys(SCENTS).sort()).toEqual(handles.sort());
+    expect([...ORDER].sort()).toEqual(handles.sort());
+    expect(ORDER).toHaveLength(5);
   });
-  it('gives each fragrance notes, botanicals and a full profile for top, heart and base', () => {
+  it('gives each fragrance its own glass color and its own bottle shape', () => {
+    const glass = ORDER.map((h) => SCENTS[h].glass);
+    const shapes = ORDER.map((h) => SCENTS[h].shape);
+    glass.forEach((g) => expect(g).toMatch(/^#[0-9a-f]{6}$/i));
+    expect(new Set(glass).size).toBe(5);
+    expect(new Set(shapes).size).toBe(5);
+    shapes.forEach((s) => expect(SHAPES).toContain(s));
+  });
+  it('gives each fragrance notes and a full profile for top, heart and base', () => {
     expect(TIERS).toEqual(['top', 'heart', 'base']);
     for (const s of Object.values(SCENTS)) {
-      for (const t of TIERS) {
-        expect(s.notes[t].length).toBeGreaterThan(0);
-        expect(s.botanicals[t].length).toBeGreaterThan(0);
-      }
+      for (const t of TIERS) expect(s.notes[t].length).toBeGreaterThan(0);
       expect(Object.keys(s.profile).sort()).toEqual([...FAMILIES].sort());
-      Object.values(s.profile).forEach((v) => expect(v).toBeGreaterThanOrEqual(0) && expect(v).toBeLessThanOrEqual(5));
-      expect(s.liquid).toMatch(/^#[0-9a-f]{6}$/i);
+      Object.values(s.profile).forEach((v) => { expect(v).toBeGreaterThanOrEqual(0); expect(v).toBeLessThanOrEqual(5); });
+      expect(s.bottle.length).toBeGreaterThan(10);
     }
   });
   it('matches the notes written in the store descriptions', () => {
@@ -35,12 +42,15 @@ describe('NUITHRA scents', () => {
     expect(sizeScale('nonsense')).toBe(1);
   });
   it('falls back to the first fragrance for unknown handles', () => {
-    expect(scentOf('nope')).toBe(SCENTS['nuithra-amber-hour']);
+    expect(scentOf('nope')).toBe(SCENTS[ORDER[0]]);
   });
-  it('uses fewer botanicals on lighter devices', () => {
-    const s = SCENTS['nuithra-amber-hour'].botanicals.top[0];
-    expect(botanicalCount(s, 'high')).toBe(s.n);
-    expect(botanicalCount(s, 'low')).toBeLessThan(s.n);
-    expect(botanicalCount(s, 'low')).toBeGreaterThan(0);
+  it('builds the discovery set attribute from exactly three different scents', () => {
+    const [a, b, c, d] = ORDER;
+    expect(discoveryAttrs([a, b, c])).toEqual({ Scents: `${SCENTS[a].name}, ${SCENTS[b].name}, ${SCENTS[c].name}` });
+    expect(discoveryAttrs([c, a, b]).Scents.split(', ')).toEqual([SCENTS[a].name, SCENTS[b].name, SCENTS[c].name]);
+    expect(discoveryAttrs([a, b])).toBeNull();
+    expect(discoveryAttrs([a, b, c, d])).toBeNull();
+    expect(discoveryAttrs([a, a, b])).toBeNull();
+    expect(discoveryAttrs([a, b, 'nope'])).toBeNull();
   });
 });
