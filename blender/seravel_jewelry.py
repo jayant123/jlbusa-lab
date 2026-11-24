@@ -18,7 +18,7 @@ from mathutils import Matrix, Vector
 sys.path.insert(0, os.path.dirname(__file__))
 import common as C  # noqa: E402
 
-LOD = {'high': dict(seg=160, prof=10, sub=2, tube=48, curve=6, link=(14, 8), hoop=(900, 36)),
+LOD = {'high': dict(seg=160, prof=10, sub=2, tube=48, curve=6, link=(14, 8), hoop=(1100, 64)),
        'low': dict(seg=72, prof=6, sub=1, tube=20, curve=3, link=(8, 5), hoop=(240, 14))}
 
 RING_R = 0.00865      # inner radius, US size 7 (17.3 mm)
@@ -146,8 +146,8 @@ def ring(lod='high', m=None):
         path = [(base * ca, base * sa * 0.55, top - 0.00035), (r * 0.62 * ca, r * 0.62 * sa, zg - sd['pav'] * 0.5),
                 (r * 0.98 * ca, r * 0.98 * sa, zg - 0.00025), (r * 1.03 * ca, r * 1.03 * sa, zg + 0.0004),
                 (r * 0.93 * ca, r * 0.93 * sa, zg + 0.00085)]
-        parts.append(tube_along(f'claw{i}', path, 0.00038, m['metal'], p['curve'], taper=[1.25, 1.05, 1.0, 0.95, 0.85]))
-        bpy.ops.mesh.primitive_uv_sphere_add(segments=p['tube'] // 2, ring_count=p['tube'] // 4, radius=0.00033,
+        parts.append(tube_along(f'claw{i}', path, 0.0003, m['metal'], p['curve'], taper=[1.3, 1.0, 0.85, 0.75, 0.62]))
+        bpy.ops.mesh.primitive_uv_sphere_add(segments=p['tube'] // 2, ring_count=p['tube'] // 4, radius=0.00021,
                                              location=(r * 0.93 * ca, r * 0.93 * sa, zg + 0.00085))
         tip = bpy.context.object
         tip.data.materials.append(m['metal'])
@@ -225,34 +225,60 @@ def pendant(lod='high', m=None):
 
 # --- Hoops -------------------------------------------------------------------------------------------------------
 def hoop(lod='high', m=None, R=0.0095, name='hoop'):
+    """A polished hollow hoop: an oval tube with evenly spaced wave flutes that twist along it, closed with a hinged
+    clasp at the top (a hinge knuckle on one end, a post on the other that clicks into a catch)."""
     p = LOD[lod]
     m = m or mats()
     nu, nv = p['hoop']
-    tube = 0.0016
+    tube = 0.00155
+    flutes = 15                  # flutes around the hoop
+    gap = 0.11                   # opening at the top for the clasp
     bm = bmesh.new()
     grid = []
-    gap = 0.06  # a small opening at the top where the post enters
     for i in range(nu + 1):
-        th = math.pi / 2 + gap / 2 + (math.tau - gap) * (i / nu)
+        t = i / nu
+        th = math.pi / 2 + gap / 2 + (math.tau - gap) * t
         cen = Vector((R * math.cos(th), 0, R * math.sin(th)))
         nrm = Vector((math.cos(th), 0, math.sin(th)))
+        ends = min(1.0, min(t, 1 - t) / 0.03)  # flutes fade out where the clasp sits
         row = []
         for j in range(nv):
             ph = (j / nv) * math.tau
-            # Smooth diagonal flutes that twist around the hoop, like a wave rolling along it.
-            rr = tube * (1 - 0.045 * (0.5 + 0.5 * math.cos(24 * th + 2 * ph)) ** 2)
-            pos = cen + nrm * (math.cos(ph) * rr) + Vector((0, 1, 0)) * (math.sin(ph) * rr * 1.25)
+            # A crisp but rounded groove: a narrow cosine valley between broad polished ridges.
+            outer = 0.5 + 0.5 * math.cos(ph)                     # 1 on the outer face, 0 on the inside
+            w = (0.5 - 0.5 * math.cos(flutes * (th - math.pi / 2))) ** 2  # evenly spaced flutes, each a smooth valley
+            rr = tube * (1 - 0.11 * w * ends * outer ** 2)
+            pos = cen + nrm * (math.cos(ph) * rr) + Vector((0, 1, 0)) * (math.sin(ph) * rr * 1.15)
             row.append(bm.verts.new(pos))
         grid.append(row)
     for i in range(nu):
         for j in range(nv):
             bm.faces.new((grid[i][j], grid[i][(j + 1) % nv], grid[i + 1][(j + 1) % nv], grid[i + 1][j]))
-    for row in (grid[0], grid[-1]):  # closed, rounded-looking ends
+    for row in (grid[0], grid[-1]):
         c = bm.verts.new(sum((v.co for v in row), Vector()) / len(row))
         for j in range(nv):
             bm.faces.new((row[j], row[(j + 1) % nv], c))
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
-    o = C.obj_from_bmesh(name, bm, m['metal'])
+    body = C.obj_from_bmesh(name + '_body', bm, m['metal'])
+    sm = body.modifiers.new('Smooth', 'SUBSURF')
+    sm.levels = sm.render_levels = 1
+    parts = [body]
+    # Hinge knuckle on one end, a slim post across the gap and a catch on the other end.
+    a0, a1 = math.pi / 2 + gap / 2, math.pi / 2 - gap / 2
+    def at(a, k=1.0):
+        return Vector((R * k * math.cos(a), 0, R * k * math.sin(a)))
+    bpy.ops.mesh.primitive_cylinder_add(vertices=p['tube'], radius=tube * 0.95, depth=tube * 2.0, location=at(a0), rotation=(math.pi / 2, 0, 0))
+    k = bpy.context.object; k.data.materials.append(m['metal']); bpy.ops.object.shade_smooth(); C.bevel(k, tube * 0.25, 3); parts.append(k)
+    bpy.ops.mesh.primitive_cylinder_add(vertices=p['tube'], radius=tube * 0.9, depth=tube * 1.6, location=at(a1), rotation=(math.pi / 2, 0, 0))
+    k2 = bpy.context.object; k2.data.materials.append(m['metal']); bpy.ops.object.shade_smooth(); C.bevel(k2, tube * 0.25, 3); parts.append(k2)
+    mid = (at(a0) + at(a1)) / 2
+    d = at(a1) - at(a0)
+    bpy.ops.mesh.primitive_cylinder_add(vertices=p['tube'] // 2, radius=0.00038, depth=d.length * 1.05, location=mid)
+    post = bpy.context.object
+    post.rotation_euler = d.to_track_quat('Z', 'Y').to_euler()
+    post.data.materials.append(m['metal']); bpy.ops.object.shade_smooth(); parts.append(post)
+    o = C.join(name, parts)
+    bpy.ops.object.shade_smooth()
     return {'hoop': o}
 
 

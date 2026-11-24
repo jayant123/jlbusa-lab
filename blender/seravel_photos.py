@@ -63,7 +63,7 @@ def velvet():
     return m
 
 
-def set_and_lights(spread=0.12):
+def set_and_lights(spread=0.12, sparks=True):
     # A seamless sweep of velvet: floor curving up into a back wall.
     bpy.ops.mesh.primitive_plane_add(size=1, location=(0, 0, 0))
     floor = bpy.context.object
@@ -104,7 +104,9 @@ def set_and_lights(spread=0.12):
     area('stripR', (0.18, 0.04, 0.08), 0.02, 2.5, sy=0.3)
     area('top', (0, 0.02, 0.35), 0.25, 1.2)
     # A ring of small bright lights for fire in the stones.
-    for i in range(12):
+    if not sparks:
+        area('soft', (0.0, -0.25, 0.2), 0.4, 3, (0.9, 0.93, 1.0))
+    for i in range(12 if sparks else 0):
         a = (i / 12) * math.tau
         area(f'spark{i}', (math.cos(a) * 0.16, math.sin(a) * 0.16 - 0.04, 0.14 + 0.05 * (i % 3)), 0.006, 0.6 + 0.3 * (i % 2))
 
@@ -178,8 +180,105 @@ def build_hoops(metal, loc=(0, 0, 0), size='Small'):
     m = mats_for(metal, 'Diamond')
     a = J.hoop('high', m, R, 'hoopA')
     b = J.hoop('high', m, R, 'hoopB')
-    place(a, (loc[0] - 0.0125, loc[1] - 0.002, loc[2] + R + 0.0016), (0, 0, math.radians(-24)))
-    place(b, (loc[0] + 0.0125, loc[1] + 0.004, loc[2] + R + 0.0016), (0, 0, math.radians(24)))
+    place(a, (loc[0] - 0.0125, loc[1], loc[2] + R + 0.0016), (0, 0, math.radians(-18)))
+    place(b, (loc[0] + 0.0125, loc[1], loc[2] + R + 0.0016), (0, 0, math.radians(18)))
+
+
+# --- Extra scenes ------------------------------------------------------------------------------------------------
+def wood():
+    """Dark walnut with a fine grain in the bump only, so the color stays rich under strong light."""
+    m = principled('walnut', color=(0.045, 0.022, 0.011), rough=0.5)
+    nt = m.node_tree
+    wave = nt.nodes.new('ShaderNodeTexWave')
+    wave.inputs['Scale'].default_value = 400
+    wave.inputs['Distortion'].default_value = 8
+    bump = nt.nodes.new('ShaderNodeBump')
+    bump.inputs['Strength'].default_value = 0.15
+    nt.links.new(wave.outputs['Fac'], bump.inputs['Height'])
+    nt.links.new(bump.outputs['Normal'], nt.nodes['Principled BSDF'].inputs['Normal'])
+    return m
+
+
+def box(name, size, loc, mat, rot=(0, 0, 0), bev=0.0006):
+    bpy.ops.mesh.primitive_cube_add(size=1, location=loc, rotation=rot)
+    o = bpy.context.object
+    o.name = name
+    o.scale = size
+    bpy.ops.object.transform_apply(scale=True)
+    o.data.materials.append(mat)
+    C.bevel(o, bev, 3)
+    return o
+
+
+def cyl(name, r, depth, loc, mat, rot=(0, 0, 0), verts=64, bev=0.0):
+    bpy.ops.mesh.primitive_cylinder_add(vertices=verts, radius=r, depth=depth, location=loc, rotation=rot)
+    o = bpy.context.object
+    o.name = name
+    o.data.materials.append(mat)
+    bpy.ops.object.shade_smooth()
+    if bev:
+        C.bevel(o, bev, 3)
+    return o
+
+
+def workshop_scene():
+    """A jeweler's bench: oak top, the ring held in a wooden ring clamp, a loupe, two needle files and a green wax carving."""
+    oak = wood()
+    bench = box('bench', (0.5, 0.3, 0.03), (0, 0.04, -0.015), oak, bev=0.002)
+    steel = principled('steel', color=(0.62, 0.63, 0.65), metal=1.0, rough=0.28)
+    black = principled('black', color=(0.015, 0.015, 0.017), rough=0.35)
+    leather = principled('leather', color=(0.25, 0.13, 0.07), rough=0.7)
+    lens = principled('lens', color=(1, 1, 1), trans=1.0, ior=1.52, rough=0.0)
+    wax = principled('wax', color=(0.12, 0.38, 0.22), rough=0.45)
+    # Ring clamp: two tapered wooden jaws with leather faces, held shut by a wedge. The ring sits in its mouth.
+    for side in (-1, 1):
+        j = box(f'jaw{side}', (0.011, 0.012, 0.11), (side * 0.0062, 0, 0.055), oak, rot=(0, math.radians(side * -3), 0), bev=0.0015)
+        box(f'pad{side}', (0.0012, 0.0115, 0.02), (side * 0.0004, 0, 0.1), leather, rot=(0, math.radians(side * -3), 0), bev=0.0003)
+    box('wedge', (0.006, 0.013, 0.03), (0, 0, 0.012), oak, bev=0.001)
+    ring = build_ring('Yellow gold', 'Diamond', (0, 0, 0), 0)
+    ring.location = (0, 0, 0.108)
+    ring.rotation_euler = (0, 0, math.radians(90))
+    # Loupe: a black barrel with a glass lens, lying on its side.
+    cyl('loupe', 0.011, 0.016, (0.05, -0.03, 0.011), black, rot=(math.radians(90), 0, math.radians(30)), bev=0.0008)
+    cyl('loupe_lens', 0.0092, 0.004, (0.0455, -0.0222, 0.011), lens, rot=(math.radians(90), 0, math.radians(30)))
+    # Needle files: a fine steel blade with a round handle.
+    for k, (x, ang) in enumerate([(-0.045, 14), (-0.06, 22)]):
+        cyl(f'file{k}', 0.0013, 0.07, (x, -0.01 - k * 0.01, 0.0014), steel, rot=(0, math.radians(90), math.radians(ang)), verts=6)
+        cyl(f'handle{k}', 0.0032, 0.03, (x - 0.047 * math.cos(math.radians(ang)), -0.01 - k * 0.01 - 0.047 * math.sin(math.radians(ang)), 0.0032), black, rot=(0, math.radians(90), math.radians(ang)), bev=0.0006)
+    # Wax carving: a green ring blank and a few shavings.
+    bpy.ops.mesh.primitive_torus_add(major_radius=0.0102, minor_radius=0.0021, major_segments=96, minor_segments=24, location=(0.022, 0.035, 0.0021))
+    w = bpy.context.object; w.data.materials.append(wax); bpy.ops.object.shade_smooth()
+    for k in range(5):
+        cyl(f'shaving{k}', 0.0012, 0.0002, (0.035 + k * 0.004, 0.022 - k * 0.002, 0.0002), wax, rot=(0.2, 0.3, k), verts=12)
+    camera((0.1, -0.19, 0.155), (0.004, 0.0, 0.07), 50, 7.0)
+
+
+def dish_scene():
+    """The ring soaking in a small ceramic dish of water."""
+    ceramic = principled('ceramic', color=(0.035, 0.04, 0.05), rough=0.22)
+    water = principled('water', color=(1, 1, 1), trans=1.0, ior=1.33, rough=0.0)
+    bowl = J.revolve_closed('dish', [(0.03, 0.0), (0.034, 0.0006), (0.036, 0.012), (0.0335, 0.0125), (0.0315, 0.0025), (0.0, 0.0022)], 128, ceramic)
+    bowl.rotation_euler = (math.radians(90), 0, 0)
+    bpy.ops.object.shade_smooth()
+    r = build_ring('Yellow gold', 'Diamond', (0, 0, 0), 0)
+    r.location = (0.002, 0.0, 0.0031)
+    r.rotation_euler = (math.radians(90), math.radians(-12), math.radians(20))
+    camera((0.0, -0.085, 0.07), (0.0, 0.0, 0.004), 85, 9.0)
+
+
+def stones_scene():
+    """Three loose stones side by side, tables up, on velvet."""
+    for k, (name, x) in enumerate([('Diamond', -0.0095), ('Sapphire', 0.0), ('Emerald', 0.0095)]):
+        st = J.brilliant(name, J.STONE_D, stone_mat(name, name.lower()))
+        st.location = (x, 0, J.stone_dims(J.STONE_D)['pav'] * 0.5)
+        st.rotation_euler = (math.radians(22), 0, math.radians(10 * k))
+    camera((0.0, -0.07, 0.045), (0.0, 0.0, 0.002), 100, 13)
+
+
+def claws_scene():
+    """A macro from above and to the side: the four claws holding the stone."""
+    build_ring('Yellow gold', 'Diamond', (0, 0, 0), 45)
+    camera((0.006, -0.018, 0.046), (0, 0, 0.0238), 100, 14)
 
 
 def main():
@@ -188,12 +287,15 @@ def main():
     mode = a.get('mode', 'product')
     samples = int(a.get('samples', 160))
     metal, stone = a.get('metal', 'Yellow gold'), a.get('stone', 'Diamond')
-    set_and_lights()
-    if mode == 'hero':
+    set_and_lights(sparks=not ((mode == 'product' and a.get('piece') == 'hoops') or mode in ('workshop', 'dish', 'hero')))
+    if mode in ('workshop', 'dish', 'stones', 'claws'):
+        {'workshop': workshop_scene, 'dish': dish_scene, 'stones': stones_scene, 'claws': claws_scene}[mode]()
+        render_settings(int(a.get('w', 1200)), int(a.get('h', 900)), samples)
+    elif mode == 'hero':
         build_ring('Yellow gold', 'Diamond', (0.014, 0.0, 0), 30)
         build_pendant('White gold', 'Sapphire', (-0.006, -0.018, 0), -20)
         build_hoops('Rose gold', (0.04, 0.034, 0))
-        camera((0.004, -0.15, 0.062), (0.016, 0.006, 0.01), 80, 6.3)
+        camera((0.004, -0.15, 0.062), (0.016, 0.006, 0.01), 80, 11)
         render_settings(int(a.get('w', 2400)), int(a.get('h', 1500)), samples)
     else:
         piece = a.get('piece', 'ring')
@@ -208,7 +310,7 @@ def main():
             camera((0.0, -0.11, 0.06), (0, 0.006, 0.002), 100, 8.0)
         else:
             build_hoops(metal, size=a.get('size', 'Small'))
-            camera((0.0, -0.13, 0.05), (0.0, 0.001, 0.011), 90, 8.0)
+            camera((0.0, -0.13, 0.05), (0.0, 0.0, 0.0115), 90, 16.0)
         render_settings(int(a.get('w', 900)), int(a.get('h', 1125)), samples)
     out = os.path.abspath(a['out'])
     os.makedirs(os.path.dirname(out), exist_ok=True)

@@ -97,7 +97,11 @@ function setView(v) {
   $$('.s-view').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === v)));
   scene?.setView(v);
 }
-$$('.s-view').forEach((b) => b.addEventListener('click', () => setView(b.dataset.view)));
+$$('.s-view').forEach((b) => b.addEventListener('click', () => {
+  setView(b.dataset.view);
+  // Phones: the panel covers the lower screen. Bring the ring back into view when a view is chosen.
+  if (innerWidth < 700) $('#design').scrollIntoView({ behavior: reduced ? 'auto' : 'smooth' });
+}));
 
 // --- Collection grid and the other pieces -------------------------------------------
 const fromPrice = (h) => {

@@ -34,7 +34,7 @@ function studio() {
 // The stone's own reflections: black with many small hard white lights, so facets flash between dark and bright.
 function gemStudio() {
   const env = new THREE.Scene();
-  env.add(new THREE.Mesh(new THREE.BoxGeometry(10, 10, 10), new THREE.MeshBasicMaterial({ color: 0x464c58, side: THREE.BackSide })));
+  env.add(new THREE.Mesh(new THREE.BoxGeometry(10, 10, 10), new THREE.MeshBasicMaterial({ color: 0x262a33, side: THREE.BackSide })));
   let seed = 3;
   const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
   for (let i = 0; i < 220; i++) {
@@ -121,13 +121,26 @@ export async function createSeravelScene(canvas, { tier, reducedMotion, onReady,
   const metal = new THREE.MeshPhysicalMaterial({ color: METALS['Yellow gold'].color, metalness: 1, roughness: 0.1, envMapIntensity: 2.2 });
   // A live scene cannot trace light bouncing inside a cut stone. So the stone is drawn as a bright mirror-cut gem:
   // every facet reflects the studio cards, with a thin film for the rainbow fire. Colored stones add their tint.
-  const stone = new THREE.MeshPhysicalMaterial({ color: 0xffffff, metalness: 1, roughness: 0, envMapIntensity: 2.4,
-    iridescence: rich ? 0.55 : 0.3, iridescenceIOR: 2.0, iridescenceThicknessRange: [200, 600], emissive: 0x000000, flatShading: true, envMap: gemEnv });
+  // Two layers fake what a real stone does. The back faces are a bright mirror turned against the front, so light
+  // seems to bounce inside the stone (the second bounce). The front faces are a lighter, part-clear mirror with a
+  // thin film for colored fire. Through the front you see the back facets flash.
+  const stone = new THREE.MeshPhysicalMaterial({ color: 0xffffff, metalness: 1, roughness: 0, envMapIntensity: 3.2, envMap: gemEnv,
+    iridescence: rich ? 0.7 : 0.45, iridescenceIOR: 2.2, iridescenceThicknessRange: [250, 700], flatShading: true,
+    transparent: true, opacity: 0.72, depthWrite: false });
+  const stoneBack = new THREE.MeshPhysicalMaterial({ color: 0xffffff, metalness: 1, roughness: 0, envMapIntensity: 4.2, envMap: gemEnv,
+    side: THREE.BackSide, flatShading: true, envMapRotation: new THREE.Euler(0.9, 2.1, 0.4), iridescence: 0.35, iridescenceIOR: 2.0 });
   let stoneMesh = null;
+  const backs = [];
   ring.traverse((o) => {
     if (!o.isMesh) return;
-    if (o.name.startsWith('stone') || o.parent?.name === 'stone') { o.material = stone; stoneMesh = o; } else o.material = metal;
+    if (o.name.startsWith('stone') || o.parent?.name === 'stone') {
+      o.material = stone; stoneMesh = o; o.renderOrder = 3;
+      const b = new THREE.Mesh(o.geometry, stoneBack);
+      b.renderOrder = 2;
+      backs.push([o, b]);
+    } else o.material = metal;
   });
+  for (const [o, b] of backs) o.add(b);
   // The ring stands on its band. Lift it so the bottom of the band rests on the velvet.
   scene.updateMatrixWorld(true);
   const box = new THREE.Box3().setFromObject(holder);
@@ -196,10 +209,11 @@ export async function createSeravelScene(canvas, { tier, reducedMotion, onReady,
     const s = STONES[name] || STONES.Diamond;
     const c = new THREE.Color(s.color);
     const diamond = name === 'Diamond';
-    stone.color.set(0xffffff).lerp(c, diamond ? 0 : 0.85);
-    stone.emissive.copy(c).multiplyScalar(diamond ? 0 : 0.22);
-    stone.metalness = 1;
-    stone.iridescence = diamond ? (rich ? 0.55 : 0.3) : 0.12;
+    stone.color.set(0xffffff).lerp(c, diamond ? 0 : 0.7);
+    stoneBack.color.set(0xffffff).lerp(c, diamond ? 0 : 0.95);
+    stoneBack.emissive.copy(c).multiplyScalar(diamond ? 0 : 0.25);
+    stone.iridescence = diamond ? (rich ? 0.7 : 0.45) : 0.15;
+    stoneBack.iridescence = diamond ? 0.35 : 0.05;
     sparkMat.color.set(diamond ? 0xffffff : new THREE.Color(0xffffff).lerp(c, 0.35));
   }
   function setEngraving(text) {
@@ -257,7 +271,7 @@ export async function createSeravelScene(canvas, { tier, reducedMotion, onReady,
     sparkGeo.attributes.position.needsUpdate = true;
     const glow = seed.reduce((m, _, i) => Math.max(m, sizes[i]), 0);
     sparkMat.opacity = view === 'inside' ? 0 : 0.95;
-    sparkMat.size = (view === 'macro' ? 0.008 : 0.014) + glow * 0.01;
+    sparkMat.size = ((view === 'macro' ? 0.008 : 0.014) + glow * 0.01) * (canvas.clientWidth < 700 ? 1.8 : 1); // phones sit farther back
   });
 
   try { await renderer.compileAsync(scene, camera); } catch { renderer.compile(scene, camera); }
