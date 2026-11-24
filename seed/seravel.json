@@ -1,0 +1,36 @@
+{
+  "brand": "SERAVEL",
+  "vendor": "SERAVEL (concept)",
+  "products": [
+    {
+      "handle": "seravel-solace-ring", "title": "SERAVEL Solace Ring", "type": "Ring",
+      "body": "<p>A solitaire ring with a 1 carat center stone in a four-claw setting. Concept product by JLB USA. Demo data.</p>",
+      "options": [
+        { "name": "Metal", "values": ["Yellow gold", "White gold", "Rose gold"] },
+        { "name": "Stone", "values": ["Diamond", "Sapphire", "Emerald"] }
+      ],
+      "price": { "base": 0, "add": { "Metal": { "Yellow gold": 1900, "White gold": 1950, "Rose gold": 1900 }, "Stone": { "Diamond": 1400, "Sapphire": 600, "Emerald": 800 } } },
+      "inventory": { "default": 8, "set": [{ "when": { "Metal": "Rose gold", "Stone": "Emerald" }, "qty": 0 }] }, "grams": 6
+    },
+    {
+      "handle": "seravel-halo-pendant", "title": "SERAVEL Halo Pendant", "type": "Necklace",
+      "body": "<p>A round stone in a halo of small diamonds on a fine cable chain. Concept product by JLB USA. Demo data.</p>",
+      "options": [
+        { "name": "Metal", "values": ["Yellow gold", "White gold", "Rose gold"] },
+        { "name": "Chain", "values": ["16 in", "18 in", "20 in"] }
+      ],
+      "price": { "base": 1150, "add": { "Chain": { "16 in": 0, "18 in": 40, "20 in": 80 } } },
+      "inventory": { "default": 10, "set": [] }, "grams": 4
+    },
+    {
+      "handle": "seravel-tide-hoops", "title": "SERAVEL Tide Hoops", "type": "Earrings",
+      "body": "<p>Hollow hoops with a hand-cut wave pattern. Sold as a pair. Concept product by JLB USA. Demo data.</p>",
+      "options": [
+        { "name": "Metal", "values": ["Yellow gold", "White gold", "Rose gold"] },
+        { "name": "Size", "values": ["Small", "Medium"] }
+      ],
+      "price": { "base": 0, "add": { "Size": { "Small": 690, "Medium": 840 } } },
+      "inventory": { "default": 12, "set": [] }, "grams": 5
+    }
+  ]
+}

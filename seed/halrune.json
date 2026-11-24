@@ -1,0 +1,27 @@
+{
+  "brand": "HALRUNE",
+  "vendor": "HALRUNE (concept)",
+  "products": [
+    {
+      "handle": "halrune-one", "title": "HALRUNE One", "type": "Headphones",
+      "body": "<p>Open-back headphones with 50 mm drivers and solid wood cups. Concept product by JLB USA. Demo data.</p>",
+      "options": [{ "name": "Finish", "values": ["Walnut", "Ash", "Graphite"] }],
+      "price": { "base": 449, "add": { "Finish": { "Walnut": 0, "Ash": 0, "Graphite": 30 } } },
+      "inventory": { "default": 15, "set": [] }, "grams": 380
+    },
+    {
+      "handle": "halrune-monitor", "title": "HALRUNE Monitor", "type": "Speakers",
+      "body": "<p>A pair of powered bookshelf speakers with a 5 inch woofer and a silk dome tweeter. Concept product by JLB USA. Demo data.</p>",
+      "options": [{ "name": "Finish", "values": ["Walnut", "Oak", "Black"] }],
+      "price": { "base": 1290, "add": {} },
+      "inventory": { "default": 6, "set": [{ "when": { "Finish": "Oak" }, "qty": 0 }] }, "grams": 9800
+    },
+    {
+      "handle": "halrune-buds", "title": "HALRUNE Buds", "type": "Earbuds",
+      "body": "<p>Wireless earbuds with a ceramic case. Concept product by JLB USA. Demo data.</p>",
+      "options": [{ "name": "Color", "values": ["Stone", "Ink"] }],
+      "price": { "base": 249, "add": {} },
+      "inventory": { "default": 25, "set": [] }, "grams": 60
+    }
+  ]
+}

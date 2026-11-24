@@ -1,0 +1,35 @@
+{
+  "brand": "VANTRIK",
+  "vendor": "VANTRIK (concept)",
+  "products": [
+    {
+      "handle": "vantrik-vk1-runner", "title": "VANTRIK VK-1 Runner", "type": "Sneaker",
+      "body": "<p>A light runner with a knit upper and a foam midsole. Concept product by JLB USA. Demo data.</p>",
+      "options": [
+        { "name": "Colorway", "values": ["Bone", "Ember", "Night", "Moss"] },
+        { "name": "Size", "values": ["US 7", "US 8", "US 9", "US 10", "US 11", "US 12"] }
+      ],
+      "price": { "base": 165, "add": {} },
+      "inventory": { "default": 20, "set": [{ "when": { "Colorway": "Ember", "Size": "US 9" }, "qty": 0 }] }, "grams": 620
+    },
+    {
+      "handle": "vantrik-vk2-court", "title": "VANTRIK VK-2 Court", "type": "Sneaker",
+      "body": "<p>A low court shoe in full-grain leather with a cupsole. Concept product by JLB USA. Demo data.</p>",
+      "options": [
+        { "name": "Colorway", "values": ["Chalk", "Navy", "Oxblood"] },
+        { "name": "Size", "values": ["US 7", "US 8", "US 9", "US 10", "US 11", "US 12"] }
+      ],
+      "price": { "base": 150, "add": {} },
+      "inventory": { "default": 20, "set": [] }, "grams": 780
+    },
+    {
+      "handle": "vantrik-custom-pair", "title": "VANTRIK Custom VK-1", "type": "Sneaker",
+      "body": "<p>A VK-1 made to your colors. Colors for each part travel with the order. Concept product by JLB USA. Demo data.</p>",
+      "options": [
+        { "name": "Size", "values": ["US 7", "US 8", "US 9", "US 10", "US 11", "US 12"] }
+      ],
+      "price": { "base": 205, "add": {} },
+      "inventory": { "default": 50, "set": [] }, "grams": 620
+    }
+  ]
+}
