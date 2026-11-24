@@ -2,6 +2,8 @@
 // mesh plus its cap parts. The materials are passed in, so the same builder makes the bottle and its reflection.
 import * as THREE from 'three';
 import { toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
+import { surfaceUV } from './etch.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
 const crease = (g, a = 0.75) => toCreasedNormals(g, a);
 
@@ -14,7 +16,7 @@ function riser(shape, h, bevel, curve = 24, segs = 10) {
 }
 function roundedRect(w, d, r) {
   const s = new THREE.Shape(), x = w / 2 - r, z = d / 2 - r;
-  s.moveTo(-x, -d / 2); s.lineTo(x, -d / 2); s.absarc(x, -z, r, -Math.PI / 2, 0); s.lineTo(w / 2, z);
+  s.moveTo(0, -d / 2); s.lineTo(x, -d / 2); s.absarc(x, -z, r, -Math.PI / 2, 0); s.lineTo(w / 2, z);
   s.absarc(x, z, r, 0, Math.PI / 2); s.lineTo(-x, d / 2); s.absarc(-x, z, r, Math.PI / 2, Math.PI); s.lineTo(-w / 2, -z);
   s.absarc(-x, -z, r, Math.PI, Math.PI * 1.5);
   return s;
@@ -30,7 +32,10 @@ const lathe = (pts, seg = 64) => new THREE.LatheGeometry(pts.map(([x, y]) => new
 // Each shape: glass geometry, the height of its neck top, and its footprint (for the light pool and the shadow).
 const GLASS = {
   slab() {
-    return { geo: riser(roundedRect(0.054, 0.032, 0.009), 0.086, 0.006), top: 0.086, w: 0.054, d: 0.032 };
+    // A rounded box with smooth, even edges. The extruded outline left bad triangles at the top corners.
+    const g = new RoundedBoxGeometry(0.054, 0.086, 0.032, 8, 0.0065);
+    g.translate(0, 0.043, 0);
+    return { geo: g, top: 0.086, w: 0.054, d: 0.032 };
   },
   moon() {
     // A thick upright disc with a fully rounded rim, lathed so the curve has no seams. It stands on a short foot.
@@ -115,7 +120,7 @@ const CAPS = {
 
 const geoCache = new Map(), capCache = new Map();
 export function glassShape(shape) {
-  if (!geoCache.has(shape)) geoCache.set(shape, GLASS[shape]());
+  if (!geoCache.has(shape)) { const g = GLASS[shape](); surfaceUV(g.geo, shape); geoCache.set(shape, g); }
   return geoCache.get(shape);
 }
 

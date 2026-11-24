@@ -6,11 +6,11 @@ import * as THREE from 'three';
 import { createStage } from '../kit/stage.js';
 import { ORDER, SCENTS, sizeScale } from './scents.js';
 import { buildBottle } from './bottles.js';
+import { etchMaps } from './etch.js';
 
 const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
 const WHITE = new THREE.Color(1, 1, 1);
 const THICK = { slab: 0.032, moon: 0.027, column: 0.05, obelisk: 0.036, octagon: 0.07 };
-const LABEL = { slab: [0.045, 0.0162], moon: [0.05, 0.0137], column: [0.05, 0.0254], octagon: [0.032, 0.0402] };
 
 // Studio for reflections: tall soft boxes left and right draw long highlights down the glass edges.
 function studio() {
@@ -135,15 +135,20 @@ export async function createNuithraScene(canvas, { tier, reducedMotion, onReady,
   const mirrorShared = Object.fromEntries(Object.entries(shared).map(([k, m]) => [k, mirror(m)]));
   const pool = poolTex(), shadow = blobTex('rgba(0,0,0,0.85)', 'rgba(0,0,0,0)'), glowT = blobTex('rgba(255,255,255,0.9)', 'rgba(255,255,255,0)');
 
-  function glassMat(hex, shape) {
-    const c = new THREE.Color(hex);
+  // Glass with its etching: frost is paler and rough, engraved lines have depth. The tint lives in the color map.
+  const RES = { high: 768, mid: 512, low: 384 }[tier] || 512;
+  function glassMat(s) {
+    const c = new THREE.Color(s.glass);
+    const tint = rich ? WHITE.clone().lerp(c, 0.55) : c;
+    const maps = etchMaps(s.shape, s.name, `#${tint.getHexString()}`, RES);
     if (rich) {
-      return new THREE.MeshPhysicalMaterial({ color: WHITE.clone().lerp(c, 0.55), transmission: 1, thickness: THICK[shape], ior: 1.5, roughness: 0.01,
-        attenuationColor: c, attenuationDistance: THICK[shape] * 2.2, specularIntensity: 1, envMapIntensity: 1.5, dispersion: tier === 'high' ? 0.25 : 0,
+      return new THREE.MeshPhysicalMaterial({ color: WHITE, ...maps, normalScale: new THREE.Vector2(0.7, 0.7), transmission: 1, thickness: THICK[s.shape], ior: 1.5, roughness: 1,
+        attenuationColor: c, attenuationDistance: THICK[s.shape] * 2.2, specularIntensity: 1, envMapIntensity: 1.5, dispersion: tier === 'high' ? 0.25 : 0,
         emissive: c, emissiveIntensity: 0 });
     }
-    return new THREE.MeshPhysicalMaterial({ color: c, transparent: true, opacity: 0.8, roughness: 0.03, clearcoat: 1, clearcoatRoughness: 0.02, envMapIntensity: 2, emissive: c, emissiveIntensity: 0.3 });
+    return new THREE.MeshPhysicalMaterial({ color: WHITE, ...maps, normalScale: new THREE.Vector2(0.7, 0.7), transparent: true, opacity: 0.82, roughness: 1, clearcoat: 1, clearcoatRoughness: 0.02, envMapIntensity: 2, emissive: c, emissiveIntensity: 0.3 });
   }
+  if (document.fonts) await Promise.all(['400 40px "Libre Caslon Display"', '500 40px "Schibsted Grotesk"'].map((f) => document.fonts.load(f))).catch(() => {});
 
   const pause = () => new Promise((r) => setTimeout(r, 0));
   const bottles = [];
@@ -152,18 +157,11 @@ export async function createNuithraScene(canvas, { tier, reducedMotion, onReady,
     bottles.push((() => {
     const s = SCENTS[handle];
     const color = new THREE.Color(s.glass);
-    const mats = { ...shared, glass: glassMat(s.glass, s.shape) };
+    const mats = { ...shared, glass: glassMat(s) };
     const { group, glass, info } = buildBottle(s.shape, s.cap, mats);
     const holder = new THREE.Group();
     holder.add(group);
     glass.userData.handle = handle;
-    if (LABEL[s.shape]) {
-      const [y, z] = LABEL[s.shape];
-      const lab = new THREE.Mesh(new THREE.PlaneGeometry(0.03, 0.015), new THREE.MeshBasicMaterial({ map: labelTex(s.name), transparent: true, depthWrite: false, opacity: 0.85 }));
-      lab.position.set(0, y, z);
-      lab.renderOrder = 5;
-      group.add(lab);
-    }
     const refl = buildBottle(s.shape, s.cap, { ...mirrorShared, glass: new THREE.MeshBasicMaterial({ color: color.clone().multiplyScalar(0.8), transparent: true, opacity: 0.42, depthWrite: false }) }).group;
     refl.scale.y = -1;
     holder.add(refl);
