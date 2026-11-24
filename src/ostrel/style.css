@@ -83,7 +83,25 @@ main{position:relative;z-index:1}
   .o-hero h1{font-size:2.05rem}.o-lede{font-size:15px;line-height:1.55}.o-eyebrow{margin-bottom:14px}
   .o-track{gap:52vh;padding-top:30vh}
   .o-chapter{max-width:none;background:rgba(10,11,12,.82);padding:18px 16px;margin:0 -4px;backdrop-filter:blur(6px)}
-  .o-config{max-width:none;padding-top:50vh;background:linear-gradient(rgba(10,11,12,0) 0,rgba(10,11,12,0) 44vh,rgba(10,11,12,.95) 50vh)}
+  /* Configure on phones: a compact block docked above the purchase bar, so the watch stays in view while you choose */
+  .o-config{max-width:none;background:none;display:flex;flex-direction:column;justify-content:flex-end;padding:0 0 calc(74px + env(safe-area-inset-bottom))}
+  .o-config-copy{padding:56px max(20px,4vw) 4px;background:linear-gradient(rgba(10,11,12,0),rgba(10,11,12,.94) 48px)}
+  .o-config h2{font-size:1.45rem;margin:0 0 6px}
+  .o-config-note{font-size:12px;line-height:1.45;margin:0 0 14px}
+  .o-group{margin:0 0 10px;min-width:0}
+  .o-config-copy,.o-options{min-width:0}
+  .o-group legend{font-size:10px;margin-bottom:6px}
+  .o-choices{flex-wrap:nowrap;overflow-x:auto;scroll-snap-type:x proximity;scrollbar-width:none;margin:0 calc(-1 * max(20px,4vw));padding:0 max(20px,4vw)}
+  .o-choices::-webkit-scrollbar{display:none}
+  .o-choice{flex:none;scroll-snap-align:start;padding:8px 12px 8px 8px;font-size:13px;white-space:nowrap}
+  .o-status{min-height:1.3em;margin:0;font-size:13px}
 }
 .concept-foot{position:relative;z-index:1}
+@media (max-width:640px) and (max-height:700px){
+  .o-config-note{display:none}
+  .o-config-copy{padding-top:40px}
+  .o-config h2{font-size:1.2rem;margin-bottom:10px}
+  .o-group{margin-bottom:6px}.o-group legend{margin-bottom:4px}
+  .o-choice{padding:6px 10px 6px 6px;font-size:12px;gap:8px}.o-swatch{width:15px;height:15px}
+}
 @media (prefers-reduced-motion:reduce){.o-stage canvas,.o-poster{transition:none}}
