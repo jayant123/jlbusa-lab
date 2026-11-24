@@ -33,8 +33,9 @@ function grain(hex) {
     let s = 3;
     const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
     for (let i = 0; i < 140; i++) {
-      const y0 = rnd() * h, amp = 4 + rnd() * 10, k = rnd() < 0.5 ? 0 : 255;
-      x.strokeStyle = `rgba(${k},${k * 0.8},${k * 0.6},${0.05 + rnd() * 0.12})`;
+      const y0 = rnd() * h, amp = 4 + rnd() * 10, dark = rnd() < 0.7;
+      const c = dark ? base.clone().multiplyScalar(0.55) : base.clone().lerp(new THREE.Color(1, 0.92, 0.8), 0.18);
+      x.strokeStyle = `rgba(${Math.round(c.r * 255)},${Math.round(c.g * 255)},${Math.round(c.b * 255)},${dark ? 0.18 + rnd() * 0.2 : 0.12 + rnd() * 0.12})`;
       x.lineWidth = 0.6 + rnd() * 2.4;
       x.beginPath();
       for (let px = 0; px <= w; px += 8) { const yy = y0 + Math.sin(px * 0.012 + i) * amp + Math.sin(px * 0.05 + i * 2) * 1.5; px ? x.lineTo(px, yy) : x.moveTo(px, yy); }
@@ -130,7 +131,9 @@ export async function createHalruneScene(canvas, { tier, reducedMotion, onReady,
         case 'cone': m = new THREE.MeshStandardMaterial({ color: 0x1d1d1e, roughness: 0.85 }); break;
         case 'surround': m = new THREE.MeshStandardMaterial({ color: 0x080808, roughness: 0.6 }); break;
         case 'dome': m = new THREE.MeshStandardMaterial({ color: 0xd8d2c6, roughness: 0.65 }); break;
-        case 'ceramic': case 'bud': m = new THREE.MeshPhysicalMaterial({ roughness: 0.28, clearcoat: 0.8, clearcoatRoughness: 0.08 }); break;
+        case 'ceramic': case 'bud': m = new THREE.MeshPhysicalMaterial({ roughness: 0.34, clearcoat: 1, clearcoatRoughness: 0.04, sheen: 0.25, sheenRoughness: 0.5, sheenColor: new THREE.Color(0xffffff) }); break;
+        case 'seam': m = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.6 }); break;
+        case 'led': m = new THREE.MeshBasicMaterial({ color: 0x5cff9a, toneMapped: false }); break;
         case 'tip': m = new THREE.MeshStandardMaterial({ color: 0x6d6b68, roughness: 0.85 }); break;
         default: m = new THREE.MeshStandardMaterial({ color: 0x777777 });
       }
@@ -178,15 +181,25 @@ export async function createHalruneScene(canvas, { tier, reducedMotion, onReady,
   let selected = ORDER[0], view = 'room', explodeT = 0, explodeK = 0, lidK = 0;
   let levels = { bass: 0, mid: 0, treble: 0, all: 0 }, smooth = { bass: 0, mid: 0, treble: 0, all: 0 };
   const EXPLODE = { pad: -0.075, stitch: -0.075, driver: -0.032, baffle: -0.012, magnet: 0.022, grille: 0.06 };
+  // On phones the pair moves closer together so the whole set fits a tall, narrow frame.
+  function layout() {
+    const n = canvas.clientWidth < 700;
+    speakers.forEach((sp, i) => sp.group.position.setX((i ? 1 : -1) * (n ? 0.31 : SPEAKER_X)));
+    budG.position.setX(n ? 0.17 : 0.24);
+  }
   const VIEWS = {
     room: [[0, 1.0, 2.35], [0, 0.72, -0.2]],
+    roomNarrow: [[0, 0.88, 1.32], [0, 0.66, -0.2]],
     'halrune-one': [[0.32, 0.86, 0.75], [0, 0.66, -0.18]],
     exploded: [[0.05, 0.84, 0.62], [0, 0.66, -0.18]],
     'halrune-monitor': [[1.05, 0.9, 0.95], [0.6, 0.66, -0.25]],
+    'halrune-monitorNarrow': [[0.62, 0.86, 0.72], [0.31, 0.66, -0.25]],
+    'halrune-budsNarrow': [[0.3, 0.76, 0.26], [0.17, 0.55, -0.08]],
     'halrune-buds': [[0.42, 0.78, 0.28], [0.24, 0.55, -0.08]],
   };
   const narrow = () => canvas.clientWidth < 700;
   function frame() {
+    layout();
     const w = canvas.clientWidth, h = canvas.clientHeight;
     if (w > 900) camera.setViewOffset(w, h, -w * (view === 'room' ? 0.14 : 0.2), 0, w, h); else camera.clearViewOffset();
     camera.updateProjectionMatrix();
@@ -244,9 +257,9 @@ export async function createHalruneScene(canvas, { tier, reducedMotion, onReady,
     // Camera: lerp to the view, swung a little by dragging.
     yaw += (yawT - yaw) * sm(4);
     const key2 = view === 'room' ? 'room' : view === 'exploded' ? 'exploded' : selected;
-    const [p, l] = VIEWS[key2];
+    const [p, l] = VIEWS[narrow() && VIEWS[key2 + 'Narrow'] ? key2 + 'Narrow' : key2];
     tl.set(...l); tp.set(...p);
-    if (narrow()) tp.sub(tl).multiplyScalar(key2 === 'room' ? 0.72 : 1.1).add(tl);
+    if (narrow() && key2 !== 'room') tp.sub(tl).multiplyScalar(1.1).add(tl);
     pivot.copy(tl);
     tp.sub(pivot).applyAxisAngle(THREE.Object3D.DEFAULT_UP, yaw + (reducedMotion ? 0 : Math.sin(now * 0.15) * 0.03)).add(pivot);
     cam.pos.lerp(tp, sm(2.2));

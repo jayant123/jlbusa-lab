@@ -29,7 +29,7 @@ def nodes(m):
     return m.node_tree.nodes, m.node_tree.links, m.node_tree.nodes['Principled BSDF']
 
 
-def wood(name, finish, straight=False):
+def wood(name, finish, straight=False, uv=False):
     """Wood grain from a distorted wave texture: long rings with fine pores. straight: flat-sawn grain for boards."""
     light, dark, rough = WOOD[finish]
     m = bpy.data.materials.new(name)
@@ -42,6 +42,10 @@ def wood(name, finish, straight=False):
     if straight:
         wave.bands_direction = 'Y'
         mp.inputs['Scale'].default_value = (0.6, 22, 3)
+    if uv:  # veneer: follow the UVs, whose u runs along the grain
+        wave.wave_type = 'BANDS'
+        wave.bands_direction = 'Y'
+        mp.inputs['Scale'].default_value = (1.5, 9, 1)
     wave.inputs['Scale'].default_value = 1.2
     wave.inputs['Distortion'].default_value = 7
     wave.inputs['Detail'].default_value = 4
@@ -55,7 +59,7 @@ def wood(name, finish, straight=False):
     mix.inputs['Factor'].default_value = 0.12
     bump = n.new('ShaderNodeBump')
     bump.inputs['Strength'].default_value = 0.08
-    l.new(tc.outputs['Object'], mp.inputs['Vector'])
+    l.new(tc.outputs['UV' if uv else 'Object'], mp.inputs['Vector'])
     l.new(mp.outputs['Vector'], wave.inputs['Vector'])
     l.new(wave.outputs['Fac'], ramp.inputs['Fac'])
     l.new(ramp.outputs['Color'], mix.inputs['A'])
@@ -130,7 +134,7 @@ def finish_mats(finish='Walnut', color='Stone'):
     M = C.material
     cer = CERAMIC.get(color, CERAMIC['Stone'])
     return {
-        'wood': wood('wood', finish), 'cabinet': wood('cabinet', finish),
+        'wood': wood('wood', finish), 'cabinet': wood('cabinet', finish, uv=True),
         'steel': M('steel', (0.85, 0.86, 0.88), metallic=1.0, roughness=0.2),
         'leather': leather('leather', (0.05, 0.04, 0.035)),
         'pad': velour('pad'),
@@ -144,9 +148,11 @@ def finish_mats(finish='Walnut', color='Stone'):
         'cone': leather('cone', (0.08, 0.08, 0.08), 0.85, 900, 0.15),
         'surround': M('surround', (0.02, 0.02, 0.02), roughness=0.55),
         'dome': M('dome', (0.8, 0.78, 0.72), roughness=0.6),
-        'ceramic': M('ceramic', cer, roughness=0.28, coat=0.7, coat_roughness=0.06),
+        'ceramic': M('ceramic', cer, roughness=0.32, coat=1.0, coat_roughness=0.04),
         'bud': M('bud', cer, roughness=0.28, coat=0.7, coat_roughness=0.06),
         'tip': M('tip', (0.42, 0.41, 0.4), roughness=0.85),
+        'seam': M('seam', (0.03, 0.03, 0.03), roughness=0.6),
+        'led': M('led', (0.2, 0.9, 0.5), roughness=0.3, emission=((0.3, 1.0, 0.55), 8)),
     }
 
 

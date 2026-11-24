@@ -18,6 +18,10 @@ const reduced = prefersReducedMotion();
 const params = new URLSearchParams(location.search);
 const money = (n, c = 'USD') => new Intl.NumberFormat('en-US', { style: 'currency', currency: c, maximumFractionDigits: 0 }).format(n);
 
+const NOTE = {
+  'halrune-monitor': 'Press Play and watch the woofers move with the bass.',
+  'halrune-buds': 'The case opens when you choose the Buds. Each charge lasts 7 hours.',
+};
 let handle = PRODUCTS[params.get('p')] ? params.get('p') : ORDER[0];
 const choice = Object.fromEntries(ORDER.map((h) => [h, PRODUCTS[h].values[0]]));
 let products = {}, loaded = false, scene = null, music = null, exploded = false, chartFor = ORDER[0];
@@ -108,7 +112,7 @@ function setExploded(on) {
 }
 $('#products').addEventListener('change', (e) => setProduct(e.target.value));
 $('#finishes').addEventListener('change', (e) => { choice[handle] = e.target.value; scene?.setFinish(handle, e.target.value); render(); });
-$('#explode').addEventListener('click', () => { if (handle !== 'halrune-one') setProduct('halrune-one'); setExploded(!exploded); track('explode', { on: exploded }); });
+$('#explode').addEventListener('click', () => { setExploded(!exploded); track('explode', { on: exploded }); });
 $('#grid').addEventListener('click', (e) => {
   const b = e.target.closest('[data-open]');
   if (!b) return;
@@ -151,7 +155,10 @@ function render() {
   $('[data-kind]').textContent = p.kind;
   $('[data-story]').textContent = p.story;
   $('#specs').innerHTML = p.specs.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
-  $('#explode').hidden = false;
+  // Taking apart is a headphones feature. Other products get a short note instead.
+  $('#explode').hidden = handle !== 'halrune-one';
+  $('#room-note').hidden = handle === 'halrune-one';
+  $('#room-note').textContent = NOTE[handle] || '';
   $('#bar-name').textContent = p.name;
   $('#bar-opt').textContent = choice[handle];
   const v = current(), st = variantState(v);

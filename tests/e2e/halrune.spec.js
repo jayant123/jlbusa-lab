@@ -44,14 +44,21 @@ test.describe('HALRUNE', () => {
     await expect(page.getByRole('dialog')).toContainText('HALRUNE One');
   });
 
-  test('the explode button switches to the headphones and toggles', async ({ page }) => {
+  test('only the headphones can be taken apart', async ({ page }) => {
     await mock(page);
     await page.goto(URL);
-    await room(page).getByRole('group', { name: 'Product' }).getByRole('radio', { name: 'Buds' }).check();
-    const b = page.getByRole('button', { name: 'Take the headphones apart' });
-    await b.click();
-    await expect(page.locator('body')).toHaveAttribute('data-product', 'halrune-one');
+    const products = room(page).getByRole('group', { name: 'Product' });
+    await products.getByRole('radio', { name: 'Buds' }).check();
+    await expect(page.locator('#explode')).toBeHidden();
+    await expect(page.locator('#room-note')).toContainText('case opens');
+    await products.getByRole('radio', { name: 'One' }).check();
+    await expect(page.locator('#room-note')).toBeHidden();
+    await page.getByRole('button', { name: 'Take the headphones apart' }).click();
     await expect(page.getByRole('button', { name: 'Put the headphones back together' })).toHaveAttribute('aria-pressed', 'true');
+    await products.getByRole('radio', { name: 'Monitor' }).check();
+    await expect(page.locator('#explode')).toBeHidden();
+    await products.getByRole('radio', { name: 'One' }).check();
+    await expect(page.getByRole('button', { name: 'Take the headphones apart' })).toHaveAttribute('aria-pressed', 'false');
   });
 
   test('music starts only on Play, then pauses and mutes', async ({ page }) => {

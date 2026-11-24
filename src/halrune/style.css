@@ -109,7 +109,8 @@ h1,h2,h3{font-family:var(--h-head);font-weight:500;letter-spacing:-.015em;text-w
 .h-dot{flex:none;width:14px;height:14px;border-radius:50%;background:var(--c);border:1px solid rgba(255,255,255,.25)}
 .h-explode{margin-top:12px;width:100%;background:transparent;border:1px dashed rgba(238,236,232,.35);padding:10px;border-radius:3px;cursor:pointer;font-size:14px}
 .h-explode[aria-pressed="true"]{border-style:solid;border-color:var(--h-sig);color:var(--h-sig)}
-.h-explode[hidden]{display:none}
+.h-explode[hidden],.h-room-note[hidden]{display:none}
+.h-room-note{margin:12px 0 0;padding:10px 12px;border:1px solid var(--h-line);border-radius:3px;font-size:14px;color:#cfcdc8}
 .h-detail{margin-top:16px;padding-top:14px;border-top:1px solid var(--h-line)}
 .h-kind{margin:0;font:500 11.5px var(--h-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--h-mute)}
 .h-detail h3{font-size:1.5rem;margin:2px 0}

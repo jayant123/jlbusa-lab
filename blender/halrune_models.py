@@ -118,6 +118,22 @@ def strip_arc(name, radius, center_z, a0, a1, width, thick, steps, mat):
     return C.obj_from_bmesh(name, bm, mat)
 
 
+def veneer_uv(o, k=3.0):
+    """u runs along the grain: up the front, back and sides, front to back on the top and bottom."""
+    me = o.data
+    uv = me.uv_layers.new(name='UVMap') if not me.uv_layers else me.uv_layers[0]
+    for poly in me.polygons:
+        n = poly.normal
+        for li in poly.loop_indices:
+            co = me.vertices[me.loops[li].vertex_index].co
+            if abs(n.z) > 0.7:
+                uv.data[li].uv = (co.y * k, co.x * k)
+            elif abs(n.x) > abs(n.y):
+                uv.data[li].uv = (co.z * k, co.y * k)
+            else:
+                uv.data[li].uv = (co.z * k, co.x * k)
+
+
 def mats():
     M = C.material
     return {
@@ -139,6 +155,8 @@ def mats():
         'ceramic': M('ceramic', (0.86, 0.84, 0.8), roughness=0.3, coat=0.6, coat_roughness=0.1),
         'bud': M('bud', (0.86, 0.84, 0.8), roughness=0.3, coat=0.6, coat_roughness=0.1),
         'tip': M('tip', (0.55, 0.54, 0.52), roughness=0.8),
+        'seam': M('seam', (0.05, 0.05, 0.05), roughness=0.6),
+        'led': M('led', (0.2, 0.9, 0.5), roughness=0.3, emission=((0.3, 1.0, 0.55), 6)),
     }
 
 
@@ -245,25 +263,57 @@ WOOF_Z, TWEET_Z, PORT_Z = 0.125, 0.245, 0.042
 def speaker(lod='high', m=None):
     p, m = LOD[lod], (m or mats())
     out, cutters = {}, []
+    # Cabinet: a box with generous rounded veneer edges (bevel applied first, so later cuts see the round).
     bpy.ops.mesh.primitive_cube_add(size=1, location=(0, 0, SPK_H / 2))
     cab = bpy.context.object
     cab.name = 'cabinet'
     cab.scale = (SPK_W, SPK_D, SPK_H)
     bpy.ops.object.transform_apply(scale=True)
     cab.data.materials.append(m['cabinet'])
-    C.bevel(cab, 0.011, 6)
+    bv = cab.modifiers.new('Round', 'BEVEL')
+    bv.width, bv.segments, bv.profile = 0.016, 8 if lod == 'high' else 4, 0.5
+    bpy.context.view_layer.objects.active = cab
+    bpy.ops.object.modifier_apply(modifier=bv.name)
     fy = -SPK_D / 2
-    # Cut real openings for the woofer and the port, each a shallow pocket behind the front face.
+    # A shallow pocket in the front for the baffle, with rounded corners.
+    BW, BH, REC = SPK_W - 0.028, SPK_H - 0.028, 0.004
+    def rounded_slab(name, w, h, depth, r, y, mat=None):
+        bpy.ops.mesh.primitive_cube_add(size=1, location=(0, y, SPK_H / 2))
+        o = bpy.context.object
+        o.name = name
+        o.scale = (w, depth, h)
+        bpy.ops.object.transform_apply(scale=True)
+        bm = bmesh.new()
+        bm.from_mesh(o.data)
+        edges = [e for e in bm.edges if abs(e.verts[0].co.x - e.verts[1].co.x) < 1e-6 and abs(e.verts[0].co.z - e.verts[1].co.z) < 1e-6]
+        bmesh.ops.bevel(bm, geom=edges, offset=r, segments=6, profile=0.5, affect='EDGES', clamp_overlap=True)
+        bm.to_mesh(o.data)
+        bm.free()
+        if mat:
+            o.data.materials.append(mat)
+        return o
+    pocket = rounded_slab('pocket', BW, BH, REC * 2, 0.008, fy)
+    b = cab.modifiers.new('Pocket', 'BOOLEAN'); b.operation = 'DIFFERENCE'; b.solver = 'EXACT'; b.object = pocket
+    bpy.ops.object.select_all(action='DESELECT'); cab.select_set(True); bpy.context.view_layer.objects.active = cab
+    bpy.ops.object.modifier_apply(modifier=b.name)
+    bpy.data.objects.remove(pocket)
+    # The baffle: a black satin panel set into the pocket, 1.5 mm behind the veneer face.
+    baffle = rounded_slab('baffle_front', BW - 0.001, BH - 0.001, 0.006, 0.0075, fy + 0.0015 + 0.003, m['trim'])
+    C.bevel(baffle, 0.0008, 2)
+    out['baffle_front'] = baffle
+    fy = fy + 0.0015  # drivers sit on the baffle face
+    # Cut the openings for the woofer and the port through the cabinet and the baffle.
     for r, z in ((0.0585, WOOF_Z), (0.0128, PORT_Z)):
         bpy.ops.mesh.primitive_cylinder_add(vertices=p['seg'], radius=r, depth=0.064, location=(0, fy, z), rotation=(math.pi / 2, 0, 0))
         cutter = bpy.context.object
-        b = cab.modifiers.new('Hole', 'BOOLEAN')
-        b.operation = 'DIFFERENCE'
-        b.solver = 'EXACT'
-        b.object = cutter
-        cutter.hide_render = True
-        cutter.hide_set(True)
-        cutters.append(cutter)
+        for tgt in (cab, baffle):
+            bb = tgt.modifiers.new('Hole', 'BOOLEAN'); bb.operation = 'DIFFERENCE'; bb.solver = 'EXACT'; bb.object = cutter
+            bpy.ops.object.select_all(action='DESELECT'); tgt.select_set(True); bpy.context.view_layer.objects.active = tgt
+            bpy.ops.object.modifier_move_to_index(modifier=bb.name, index=0)
+            bpy.ops.object.modifier_apply(modifier=bb.name)
+        bpy.data.objects.remove(cutter)
+    # Veneer UVs: the grain runs up the front and sides and front to back on the top.
+    veneer_uv(cab)
     wnormal(cab)
     out['cabinet'] = cab
     # Woofer: a black frame, the cone, a rolled rubber surround and a dust cap. Front faces -Y.
@@ -306,14 +356,6 @@ def speaker(lod='high', m=None):
     port = spin_profile('port', [(0.0125, 0.03), (0.0125, 0.004), (0.0145, 0.001), (0.0185, -0.0005), (0.0195, -0.001), (0.0195, 0.0), (0.0135, 0.0045), (0.0135, 0.03)], p['seg'], m['trim'], axis='Y', closed=False)
     port.location = (0, fy, PORT_Z)
     out['port'] = port
-    # Apply the cuts, then drop the cutters.
-    bpy.ops.object.select_all(action='DESELECT')
-    cab.select_set(True)
-    bpy.context.view_layer.objects.active = cab
-    for mod in [x for x in cab.modifiers if x.type == 'BOOLEAN']:
-        bpy.ops.object.modifier_apply(modifier=mod.name)
-    for c in cutters:
-        bpy.data.objects.remove(c)
     # Rubber feet.
     for fx, fyy in ((-0.07, -0.09), (0.07, -0.09), (-0.07, 0.09), (0.07, 0.09)):
         bpy.ops.mesh.primitive_cylinder_add(vertices=24, radius=0.009, depth=0.004, location=(fx, fyy, -0.002))
@@ -392,7 +434,23 @@ def buds(lod='high', m=None):
         pnl.name = f'panel_{side}'
         pnl.data.materials.append(m['steel'])
         out[pnl.name] = pnl
-    # A thin gold-tone hinge line and an indicator light on the front.
+    # The seam where lid meets base: a fine dark line around the case.
+    zn = (CASE_SPLIT - CASE_C) / CASE_C
+    ring = math.sqrt(1 - zn * zn) * (1 + 0.18 * (1 - abs(zn)) ** 2)
+    pts = [(math.cos(t) * CASE_A * ring * 1.002, math.sin(t) * CASE_B * ring * 1.002, CASE_SPLIT) for t in [i * 2 * math.pi / 96 for i in range(97)]]
+    out['seam'] = curve_tube('seam', pts, 0.00035, m['seam'], res=2, bezier=False)
+    # A status light on the front of the base, just under the seam.
+    zl = 0.0062
+    zn2 = (zl - CASE_C) / CASE_C
+    ry = CASE_B * math.sqrt(1 - zn2 * zn2) * (1 + 0.18 * (1 - abs(zn2)) ** 2)
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=24, ring_count=12, radius=0.0009, location=(0, -ry + 0.0002, zl))
+    led = bpy.context.object
+    led.name = 'status_light'
+    led.scale = (1, 0.4, 1)
+    led.data.materials.append(m['led'])
+    bpy.ops.object.shade_smooth()
+    out['status_light'] = led
+    # A short hinge bar on the back, visible across the seam.
     bpy.ops.mesh.primitive_cylinder_add(vertices=24, radius=0.0012, depth=0.022, location=HINGE, rotation=(0, math.pi / 2, 0))
     h = bpy.context.object
     h.name = 'hinge'
