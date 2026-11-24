@@ -33,6 +33,12 @@ export async function createPlinthaScene(canvas, { tier, reducedMotion, onReady,
   stage.on('fallback', onFallback);
   if (!stage.ok) return null;
   const { scene, camera, renderer } = stage;
+  // Room scale: the nearest view is over a meter away and phones frame the room from 20+ m. The kit's 5 mm near
+  // plane (made for the watch) left too little depth precision. The floor slabs and their grout then fought
+  // in blocky patches that shimmered. A 10 cm near plane keeps them apart.
+  camera.near = 0.1;
+  camera.far = 80;
+  camera.updateProjectionMatrix();
   scene.background = new THREE.Color(0xe7e3dc);
   const pmrem = new THREE.PMREMGenerator(renderer);
   scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
@@ -118,9 +124,10 @@ export async function createPlinthaScene(canvas, { tier, reducedMotion, onReady,
   sun.target.position.set(1.5, 0, -0.5);
   sun.castShadow = tier !== 'low';
   sun.shadow.mapSize.set(tier === 'high' ? 2048 : 1024, tier === 'high' ? 2048 : 1024);
-  Object.assign(sun.shadow.camera, { left: -6, right: 6, top: 6, bottom: -6, near: 1, far: 22 });
-  sun.shadow.bias = -0.0004;
-  sun.shadow.normalBias = 0.02;
+  // A tight depth range keeps phone shadow maps precise. The sun sits about 12 m from the room's center.
+  Object.assign(sun.shadow.camera, { left: -6, right: 6, top: 6, bottom: -6, near: 5, far: 20 });
+  sun.shadow.bias = -0.0012;
+  sun.shadow.normalBias = 0.035;
   sun.shadow.radius = 4;
   const lampLight = new THREE.PointLight(0xffb06a, 0, 7, 1.6);
   lampLight.position.set(0, 1.45, 0);
@@ -337,6 +344,13 @@ export async function createPlinthaScene(canvas, { tier, reducedMotion, onReady,
   // --- Assembly -------------------------------------------------------------------------
   let assembleAt = reducedMotion ? -1 : null;
   const assembleK = (now) => (assembleAt === -1 ? 1 : assembleAt === null ? 0 : clamp((now - assembleAt) / 2.6));
+  // The sun never moves. Shadows are redrawn only while something in the room moves, so a still room
+  // shows a still floor. Phones otherwise flicker in blocky patches as the shadow map is redrawn each frame.
+  renderer.shadowMap.autoUpdate = false;
+  renderer.shadowMap.needsUpdate = true;
+  let shadowSig = '', shadowHold = 0;
+  const shadowCasters = () => [...pieces.filter((p) => p.alive).map((p) => p.g), walls, rug, sideTable, lamp];
+  const sigOf = (objs) => objs.map((o) => `${o.position.x.toFixed(4)},${o.position.y.toFixed(4)},${o.position.z.toFixed(4)},${o.rotation.y.toFixed(4)},${o.visible ? 1 : 0}`).join('|');
   stage.onFrame((dt, now) => {
     const sm = (rate) => Math.min(1, dt * (reducedMotion ? 60 : rate));
     const ak = assembleK(now);
@@ -406,6 +420,8 @@ export async function createPlinthaScene(canvas, { tier, reducedMotion, onReady,
       p.sub(look).multiplyScalar(far).add(look);
       camPos.lerp(p, camPos.lengthSq() ? sm(2.6) : 1);
       camLook.lerp(look, camLook.lengthSq() ? sm(2.6) : 1);
+      if (camPos.distanceToSquared(p) < 1e-8) camPos.copy(p);
+      if (camLook.distanceToSquared(look) < 1e-8) camLook.copy(look);
       camera.position.copy(camPos);
       camera.lookAt(camLook);
     }
@@ -414,6 +430,9 @@ export async function createPlinthaScene(canvas, { tier, reducedMotion, onReady,
       const nx = offset.x + (offset.xT - offset.x) * k, ny = offset.y + (offset.yT - offset.y) * k;
       if (Math.abs(nx - offset.x) > 0.05 || Math.abs(ny - offset.y) > 0.05) { offset.x = nx; offset.y = ny; frameView(); }
     }
+    const sig = sigOf(shadowCasters()) + `|${sun.intensity.toFixed(3)}`;
+    if (sig !== shadowSig) { shadowSig = sig; shadowHold = 3; }
+    if (shadowHold > 0) { renderer.shadowMap.needsUpdate = true; shadowHold -= 1; }
   });
 
   try { await renderer.compileAsync(scene, camera); } catch { renderer.compile(scene, camera); }
