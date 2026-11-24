@@ -6,7 +6,6 @@ import * as THREE from 'three';
 import { createStage } from '../kit/stage.js';
 import { ORDER, SCENTS, sizeScale } from './scents.js';
 import { buildBottle } from './bottles.js';
-import { buildSetting } from './settings.js';
 
 const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
 const WHITE = new THREE.Color(1, 1, 1);
@@ -82,8 +81,8 @@ function labelTex(name) {
   });
 }
 
-export async function createNuithraScene(canvas, { tier, reducedMotion, onReady, onFallback, onPick, dragSurfaces = [], still = false, setting = null }) {
-  const stage = createStage(canvas, { tier, fov: 28, createRenderer: (c, tr) => {
+export async function createNuithraScene(canvas, { tier, reducedMotion, onReady, onFallback, onPick, dragSurfaces = [], still = false }) {
+  const stage = createStage(canvas, { tier, fov: 28, shouldRender: () => active, createRenderer: (c, tr) => {
     const r = new THREE.WebGLRenderer({ canvas: c, antialias: true, powerPreference: 'high-performance' });
     r.toneMapping = THREE.AgXToneMapping;
     r.toneMappingExposure = 1.2;
@@ -122,13 +121,6 @@ export async function createNuithraScene(canvas, { tier, reducedMotion, onReady,
   wallRefl.scale.y = -1;
   wallRefl.position.set(0, -0.4, -0.5);
   scene.add(wall, wallRefl, stone, lip, edge);
-  // Optional forest setting (concept alternatives). It replaces the wall and the stone shelf.
-  const forest = setting ? buildSetting(setting, { scene }) : null;
-  if (forest) {
-    [wall, wallRefl, stone, lip, edge].forEach((m) => { m.visible = false; });
-    if (forest.dark) { key.color.set(0x9fb8ff); key.intensity = 1.6; }
-    else { key.color.set(0xfff1d0); key.intensity = 5; key.position.set(-0.5, 0.8, 0.3); }
-  }
 
   // --- Bottles -------------------------------------------------------------------------------------------------
   const metal = new THREE.MeshPhysicalMaterial({ color: 0xd8b06a, metalness: 1, roughness: 0.2 });
@@ -175,7 +167,6 @@ export async function createNuithraScene(canvas, { tier, reducedMotion, onReady,
     const refl = buildBottle(s.shape, s.cap, { ...mirrorShared, glass: new THREE.MeshBasicMaterial({ color: color.clone().multiplyScalar(0.8), transparent: true, opacity: 0.42, depthWrite: false }) }).group;
     refl.scale.y = -1;
     holder.add(refl);
-    if (setting && setting !== 'pool') refl.visible = false;
     // Light pool in front of the bottle, contact shadow under it, glow behind it.
     const lightPool = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).translate(0, -0.5, 0).rotateX(-Math.PI / 2),
       new THREE.MeshBasicMaterial({ map: pool, color, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
@@ -219,18 +210,25 @@ export async function createNuithraScene(canvas, { tier, reducedMotion, onReady,
       case 'glass': return [[b.x + 0.1, 0.085, b.z + f + (n ? 0.42 : 0.3)], [b.x, 0.062, b.z + f]];
       case 'light': return [[b.x * 0.4 - 0.05, 0.075, n ? 0.95 : 0.6], [b.x * 0.4, 0.045, 0.06]];
       case 'notes': return [[b.x - 0.05, 0.085, b.z + f + (n ? 0.48 : 0.34)], [b.x, 0.062, b.z + f]];
+      case 'pdp': return [[b.x - 0.07, 0.095, b.z + f + (n ? 0.55 : 0.46)], [b.x, n ? 0.078 : 0.07, b.z + f]];
+      case 'solo': return [[b.x - 0.02, 0.08, b.z + f + 0.52], [b.x, 0.07, b.z + f]];
       case 'shop': return n ? [[b.x * 0.6, 0.12, 0.9], [b.x * 0.6, 0.06, 0]] : [[b.x * 0.5, 0.12, 0.72], [b.x * 0.6, 0.058, 0]];
-      default: return n ? [[0, 0.17, 1.35], [0, 0.06, -0.03]] : [[0.02, 0.15, 1.05], [0.02, 0.085, 0]];
+      default: return n ? [[0, 0.16, 1.45], [0, 0.085, -0.03]] : [[0, 0.15, 1.04], [0, 0.158, 0]];
     }
   }
 
-  // Composition: the row sits right of the copy on wide screens and high on phones.
+  // Composition: how far the picture shifts right on wide screens, and how far up on phones, per view.
+  const OFFSET = { hero: 0, pdp: 0.22, glass: 0.21, light: 0.18, notes: 0.21, shop: 0.21, solo: 0 };
+  const NARROW_UP = { hero: -0.2, solo: 0 };
+  let offX = 0, offT = 0, active = true;
   function frame() {
     layout();
     const w = canvas.clientWidth, h = canvas.clientHeight;
-    if (w > 900) camera.setViewOffset(w, h, -w * 0.21, 0, w, h); else camera.setViewOffset(w, h, 0, h * 0.2, w, h);
+    offT = w > 900 ? (OFFSET[view] ?? 0) * w : 0;
+    camera.setViewOffset(w, h, -offX, w > 900 ? 0 : h * (NARROW_UP[view] ?? 0.2), w, h);
     camera.updateProjectionMatrix();
   }
+  // Wide screens: the hero is centered. The product view puts the bottle right of the details.
   window.addEventListener('resize', frame);
   frame();
 
@@ -244,7 +242,7 @@ export async function createNuithraScene(canvas, { tier, reducedMotion, onReady,
     ray.setFromCamera(ndc, camera);
     return ray.intersectObjects(glassMeshes, false)[0]?.object.userData.handle || null;
   };
-  const SKIP = 'input,button,a,label,select,textarea,.kit-panel,.n-panel,.n-card,.n-hero-copy';
+  const SKIP = 'input,button,a,label,select,textarea,summary,.kit-panel,.n-pdp-info,.n-card,.n-hero-copy,.n-hero-foot';
   window.addEventListener('pointermove', (e) => {
     if (e.pointerType === 'mouse') {
       if (fine) ptr = [e.clientX / innerWidth * 2 - 1, e.clientY / innerHeight * 2 - 1];
@@ -272,10 +270,10 @@ export async function createNuithraScene(canvas, { tier, reducedMotion, onReady,
   stage.onFrame((dt, now) => {
     const sm = (rate) => Math.min(1, dt * (reducedMotion ? 60 : rate));
     const t = now - t0;
-    forest?.update(t);
+    if (Math.abs(offT - offX) > 0.5) { offX += (offT - offX) * Math.min(1, dt * 3); frame(); }
     // The back light sweeps the row in the hero and settles behind the chosen bottle elsewhere.
     const sweep = view === 'hero' || view === 'light';
-    const target = still ? bottles[selected].pos.x * 0.6 : sweep && !reducedMotion ? Math.sin(t * 0.32) * (narrow ? 0.16 : 0.26) : bottles[selected].pos.x;
+    const target = still ? bottles[selected].pos.x : sweep && !reducedMotion ? Math.sin(t * 0.32) * (narrow ? 0.16 : 0.26) : bottles[selected].pos.x;
     lightX += (target - lightX) * sm(view === 'hero' ? 6 : 2);
     back.position.set(lightX, 0.3, -0.34);
     back.target.position.set(lightX, 0, 0.12);
@@ -284,7 +282,7 @@ export async function createNuithraScene(canvas, { tier, reducedMotion, onReady,
 
     bottles.forEach((b, i) => {
       const on = i === selected;
-      const fwdT = on && view !== 'hero' ? 0.05 : on ? 0.02 : 0;
+      const fwdT = on && view !== 'hero' ? 0.05 : on ? 0.02 : view === 'pdp' ? -0.35 : 0;
       b.fwd += (fwdT - b.fwd) * sm(4);
       b.scale += ((on ? sizeScale(size) : 1) - b.scale) * sm(5);
       if (!on && !reducedMotion) b.yaw += (Math.sin(t * 0.2 + i) * 0.25 - b.yaw) * sm(0.6);
@@ -324,6 +322,8 @@ export async function createNuithraScene(canvas, { tier, reducedMotion, onReady,
   return {
     setScent,
     setSize,
-    setView(v) { view = v; },
+    setView(v) { view = v; frame(); },
+    setActive(on) { active = on; },
+    solo(handle) { selected = idx(handle); bottles.forEach((b, i) => { b.holder.visible = i === selected; }); view = 'solo'; frame(); },
   };
 }

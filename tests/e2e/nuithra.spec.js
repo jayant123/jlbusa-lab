@@ -15,10 +15,10 @@ test.describe('NUITHRA', () => {
     await expect(page.getByTestId('price')).toHaveText('$210');
     await scent(page, 'Smoke Garden');
     await expect(page.locator('body')).toHaveAttribute('data-scent', 'nuithra-smoke-garden');
-    await expect(page.getByRole('button', { name: 'Sold out' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Sold out' }).first()).toBeDisabled();
     await size(page, '30 ml');
     await expect(page.getByTestId('price')).toHaveText('$105');
-    await expect(page.getByRole('button', { name: 'Add to cart' })).toBeEnabled();
+    await expect(page.getByRole('button', { name: 'Add to cart' }).first()).toBeEnabled();
   });
 
   test('the notes follow the chosen scent', async ({ page }) => {
@@ -37,7 +37,7 @@ test.describe('NUITHRA', () => {
     await page.goto(URL);
     await scent(page, 'Fig Night');
     await size(page, '30 ml');
-    await page.getByRole('button', { name: 'Add to cart' }).click();
+    await page.getByRole('button', { name: 'Add to cart' }).first().click();
     await expect(page.getByRole('button', { name: /Checkout \(1\)/ })).toBeVisible();
     await expect(page.getByTestId('set-price')).toHaveText('$38');
     await page.getByRole('button', { name: 'Add discovery set' }).click();
@@ -53,7 +53,7 @@ test.describe('NUITHRA', () => {
   test('the test checkout unlocks the store first, then opens the checkout', async ({ page }) => {
     await mock(page);
     await page.goto(URL);
-    await page.getByRole('button', { name: 'Add to cart' }).click();
+    await page.getByRole('button', { name: 'Add to cart' }).first().click();
     await page.getByRole('button', { name: /Checkout \(1\)/ }).click();
     await page.getByRole('button', { name: /real checkout/ }).click();
     const unlock = page.getByRole('link', { name: /Unlock the test store/ });
@@ -61,6 +61,41 @@ test.describe('NUITHRA', () => {
     await expect(unlock).toHaveAttribute('href', 'https://example.myshopify.com/password');
     await expect(go).toHaveAttribute('href', 'https://example.myshopify.com/cart/c/s1?key=k');
     await expect(page.getByRole('dialog')).toContainText('nuithra-demo');
+  });
+
+  test('the collection grid shows every scent with a price and opens it', async ({ page }) => {
+    await mock(page);
+    await page.goto(URL);
+    const grid = page.locator('#grid');
+    await expect(grid.locator('li')).toHaveCount(5);
+    await expect(grid.locator('[data-from="nuithra-vetiver-rain"]')).toHaveText('From $100');
+    await grid.getByRole('button', { name: 'View Fig Night' }).click();
+    await expect(page.locator('[data-name]')).toHaveText('Fig Night');
+    await expect(page.getByRole('group', { name: 'Scent' }).getByRole('radio', { name: /^Fig Night/ })).toBeChecked();
+  });
+
+  test('the scent finder suggests a scent and opens it', async ({ page }) => {
+    await mock(page);
+    await page.goto(URL);
+    const quiz = page.locator('#quiz-form');
+    await quiz.getByRole('radio', { name: 'In the evening' }).check();
+    await quiz.getByRole('radio', { name: 'Wood and smoke' }).check();
+    await expect(page.locator('#quiz-result')).toBeEmpty();
+    await quiz.getByRole('radio', { name: 'Noticed across a room' }).check();
+    await expect(page.locator('#quiz-result')).toContainText('Smoke Garden');
+    await page.locator('#quiz-result').getByRole('button', { name: 'See Smoke Garden' }).click();
+    await expect(page.locator('body')).toHaveAttribute('data-scent', 'nuithra-smoke-garden');
+  });
+
+  test('the newsletter form says it is a demo and sends nothing', async ({ page }) => {
+    await mock(page);
+    await page.goto(URL);
+    await page.getByLabel('Email address').fill('not-an-email');
+    await page.getByRole('button', { name: 'Subscribe' }).click();
+    await expect(page.locator('#news-msg')).toHaveText('Please enter a valid email address.');
+    await page.getByLabel('Email address').fill('ana@example.com');
+    await page.getByRole('button', { name: 'Subscribe' }).click();
+    await expect(page.locator('#news-msg')).toContainText('demo store');
   });
 
   test('compares all five scents', async ({ page }) => {
@@ -109,7 +144,7 @@ test.describe('NUITHRA', () => {
     await page.goto(URL);
     await expect(page.getByText("Couldn't load prices.")).toBeVisible({ timeout: 10000 });
     await expect(page.getByRole('button', { name: 'Try again' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Add to cart' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Add to cart' }).first()).toBeDisabled();
   });
 
   test('keyboard: reach Add to cart, add, open and close the panel', async ({ page, isMobile }) => {

@@ -16,9 +16,16 @@
 <link rel="stylesheet" href="/src/nuithra/style.css">
 </head>
 <body data-scent="nuithra-amber-hour">
+<p class="n-announce">Free shipping on orders over $100. Every order comes with three samples.</p>
 <header class="n-top">
-  <a class="n-mark" href="#top" aria-label="NUITHRA, back to top">NUITHRA</a>
-  <nav class="n-nav" aria-label="Sections"><a href="#glass">Glass</a><a href="#notes">Notes</a><a href="#shop">Shop</a></nav>
+  <a class="n-mark" href="#top" aria-label="NUITHRA home">NUITHRA</a>
+  <nav class="n-nav" aria-label="Main">
+    <a href="#collection">Shop</a><a href="#discovery">Discovery set</a><a href="#quiz">Find your scent</a><a href="#story">Our story</a><a href="#journal">Journal</a>
+  </nav>
+  <details class="n-menu">
+    <summary>Menu</summary>
+    <nav aria-label="Menu"><a href="#collection">Shop</a><a href="#discovery">Discovery set</a><a href="#quiz">Find your scent</a><a href="#story">Our story</a><a href="#journal">Journal</a><a href="#faq">Help</a></nav>
+  </details>
   <span class="n-concept">Concept by JLB USA</span>
 </header>
 
@@ -28,76 +35,161 @@
 </div>
 
 <main id="top">
-  <section class="n-hero">
+  <section class="n-hero" data-3d>
     <div class="n-hero-copy">
-      <p class="n-eyebrow">Eau de parfum · Five scents · Concept</p>
-      <h1>Five scents in five colors of glass</h1>
-      <p class="n-lede">Each NUITHRA scent has a bottle of its own. The glass takes the color of the perfume inside. Choose one and watch the light move through it.</p>
+      <p class="n-eyebrow">Eau de parfum · Five scents</p>
+      <h1>Perfume for the hours after dark</h1>
+      <p class="n-lede">Five scents in five bottles of colored glass. Made in small batches.</p>
+      <div class="n-ctas"><a class="n-btn" href="#collection">Shop the collection</a><a class="n-btn n-btn-ghost" href="#quiz">Find your scent</a></div>
+    </div>
+    <div class="n-hero-foot">
       <div class="n-quick" role="group" aria-label="Choose a bottle" id="quick"></div>
       <p class="n-hint"><span class="n-hint-wide">Click a bottle to bring it forward.</span><span class="n-hint-narrow">Tap a bottle to bring it forward.</span></p>
     </div>
   </section>
 
-  <section class="n-chapter" id="glass" data-view="glass" aria-labelledby="glass-title">
-    <div class="n-card">
-      <p class="n-num">01 · The bottle</p>
-      <h2 id="glass-title">Pressed from heavy glass</h2>
-      <p class="n-bottle-line" data-bottle></p>
-      <p>Every bottle is pressed in one piece. The base is 12 mm thick. Turn it and the edges catch the light.</p>
+  <section class="n-collection n-light" id="collection" aria-labelledby="col-title">
+    <div class="n-wrap">
+      <div class="n-head"><h2 id="col-title">The collection</h2><p>Five scents. Each bottle has its own color and shape.</p></div>
+      <ul class="n-grid" id="grid"></ul>
     </div>
   </section>
 
-  <section class="n-chapter" id="light" data-view="light" aria-labelledby="light-title">
-    <div class="n-card">
-      <p class="n-num">02 · The color</p>
-      <h2 id="light-title">The glass is the color of the scent</h2>
-      <p>Each bottle is tinted to match its perfume. Light passes through and leaves that color on the stone.</p>
-    </div>
-  </section>
-
-  <section class="n-chapter" id="notes" data-view="notes" aria-labelledby="notes-title">
-    <div class="n-card n-card-notes">
-      <p class="n-num">03 · The scent</p>
-      <h2 id="notes-title" data-name>Amber Hour</h2>
-      <p class="n-mood" data-mood></p>
+  <section class="n-pdp" id="scent" data-3d data-view="pdp" aria-labelledby="pdp-name">
+    <div class="n-pdp-info">
+      <p class="n-crumb">Eau de parfum · <span data-mood></span></p>
+      <h2 id="pdp-name" data-name>Amber Hour</h2>
+      <p class="n-pdp-price"><span data-testid="pdp-price" id="pdp-price"></span> <span class="n-pdp-size" id="pdp-size">50 ml</span></p>
+      <p class="n-story" data-story></p>
       <dl class="n-tiers">
         <div><dt>Top notes <span>First 15 minutes</span></dt><dd data-list="top"></dd></div>
         <div><dt>Heart notes <span>The first hours</span></dt><dd data-list="heart"></dd></div>
         <div><dt>Base notes <span>Six hours and on</span></dt><dd data-list="base"></dd></div>
       </dl>
-    </div>
-  </section>
-
-  <section class="n-shop" id="shop" aria-labelledby="shop-title">
-    <div class="n-panel">
-      <h2 id="shop-title">Choose your bottle</h2>
       <fieldset class="n-group"><legend>Scent</legend><div class="n-scents" id="scents"></div></fieldset>
       <fieldset class="n-group"><legend>Size</legend><div class="n-sizes" id="sizes"></div></fieldset>
+      <button type="button" class="n-btn n-pdp-add" id="pdp-add" disabled>Add to cart</button>
       <p class="n-status" id="status" role="status" aria-live="polite"></p>
-      <div class="n-set">
-        <div class="n-set-head"><h3>Discovery set</h3><span id="set-price" data-testid="set-price"></span></div>
-        <p>Three scents of your choice in 8 ml sprays. <span id="set-count">Pick three.</span></p>
-        <div class="n-picks" role="group" aria-label="Discovery set scents" id="picks"></div>
-        <button type="button" class="n-set-add" id="set-add" disabled>Add discovery set</button>
-      </div>
-      <div class="n-compare">
-        <h3>Compare the five</h3>
-        <div id="compare"></div>
+      <p class="n-bottle-line" data-bottle></p>
+      <div class="n-acc">
+        <details><summary>Details</summary><p>Eau de parfum with 18 percent perfume oil. It lasts six to eight hours on skin. Each bottle has a magnetic cap.</p></details>
+        <details><summary>Ingredients</summary><p>Alcohol denat., parfum (fragrance), water, limonene, linalool, coumarin. Vegan. Not tested on animals.</p></details>
+        <details><summary>Shipping and returns</summary><p>Orders ship in 2 to 3 business days. Shipping is free over $100. You can return an unopened bottle within 30 days.</p></details>
       </div>
     </div>
   </section>
 
-  <section class="n-close" aria-labelledby="pyr-title">
-    <h2 id="pyr-title">The notes, side by side</h2>
-    <div class="n-table-wrap"><table class="n-table" id="pyramid"></table></div>
-    <div class="n-notes">
-      <p><strong>Concentration</strong> Eau de parfum. Around 18 percent perfume oil.</p>
-      <p><strong>How to wear it</strong> Two sprays on the wrists or neck. Let it settle before you judge it.</p>
-      <p><strong>Delivery</strong> Ships in 2 to 3 business days with a sample of each scent.</p>
+  <section class="n-craft" id="craft" data-3d data-view="light" aria-labelledby="craft-title">
+    <div class="n-card">
+      <p class="n-num">How it is made</p>
+      <h2 id="craft-title">Glass that holds the light</h2>
+      <p>Each bottle is pressed from heavy glass. The base is 12 mm thick. The glass is tinted to match the perfume inside.</p>
+      <p>Hold one up to a window. Its color falls across the table.</p>
+      <ul class="n-facts"><li><strong>400</strong> bottles in each batch</li><li><strong>12 mm</strong> glass base</li><li><strong>5</strong> caps of brass, stone and oak</li></ul>
     </div>
-    <p class="n-bigmark" aria-hidden="true" data-text="NUITHRA"></p>
+  </section>
+
+  <section class="n-discovery n-light" id="discovery" aria-labelledby="disc-title">
+    <div class="n-wrap n-split">
+      <img class="n-disc-img" src="/nuithra/stills/discovery.webp" alt="Three NUITHRA bottles side by side on dark stone." loading="lazy" width="1200" height="900">
+      <div class="n-set">
+        <p class="n-num">Discovery set</p>
+        <h2 id="disc-title">Not sure yet? Start with three.</h2>
+        <p>Pick any three scents in 8 ml sprays. Wear each one for a day. If you buy a full bottle within 60 days we take the cost of the set off.</p>
+        <div class="n-set-head"><span id="set-count">Pick three.</span><span id="set-price" data-testid="set-price"></span></div>
+        <div class="n-picks" role="group" aria-label="Discovery set scents" id="picks"></div>
+        <button type="button" class="n-btn n-set-add" id="set-add" disabled>Add discovery set</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="n-quiz" id="quiz" aria-labelledby="quiz-title">
+    <div class="n-wrap">
+      <div class="n-head"><h2 id="quiz-title">Find your scent</h2><p>Three questions. It takes about twenty seconds.</p></div>
+      <form class="n-quiz-form" id="quiz-form"></form>
+      <div class="n-quiz-result" id="quiz-result" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <section class="n-compare-sec n-light" aria-labelledby="cmp-title">
+    <div class="n-wrap">
+      <div class="n-head"><h2 id="cmp-title">The five side by side</h2><p>Each scent is a mix of five families. Here is how much of each it has.</p></div>
+      <div class="n-compare" id="compare"></div>
+      <div class="n-table-wrap"><table class="n-table" id="pyramid"></table></div>
+    </div>
+  </section>
+
+  <section class="n-story-sec" id="story" aria-labelledby="story-title">
+    <div class="n-wrap n-split">
+      <div>
+        <p class="n-num">Our story</p>
+        <h2 id="story-title">A small house with five scents</h2>
+        <p>NUITHRA is a small fragrance house. We make five scents and we keep making them. We do not launch something new every season.</p>
+        <p>Each scent starts with a time of day. Amber Hour is the last light on a winter afternoon. Vetiver Rain is a garden after a storm. We work on a scent until it smells like that moment.</p>
+        <p>We mix and fill every bottle by hand in batches of 400.</p>
+      </div>
+      <img class="n-story-img" src="/nuithra/stills/craft.webp" alt="Light passing through an amber NUITHRA bottle onto dark stone." loading="lazy" width="1200" height="900">
+    </div>
+  </section>
+
+  <section class="n-reviews n-light" aria-labelledby="rev-title">
+    <div class="n-wrap">
+      <div class="n-head"><h2 id="rev-title">What customers say</h2><p class="n-small">Sample reviews. NUITHRA is a concept brand.</p></div>
+      <ul class="n-rev">
+        <li><p class="n-stars" aria-label="5 out of 5 stars">★★★★★</p><blockquote>I wear Amber Hour every day in winter. People ask me what it is all the time.</blockquote><p class="n-who">Maya R. · Amber Hour</p></li>
+        <li><p class="n-stars" aria-label="5 out of 5 stars">★★★★★</p><blockquote>Salt Iris smells clean without smelling like soap. It lasts all day on me.</blockquote><p class="n-who">Daniel K. · Salt Iris</p></li>
+        <li><p class="n-stars" aria-label="4 out of 5 stars">★★★★☆</p><blockquote>The discovery set made it easy to choose. I tried three and bought Smoke Garden.</blockquote><p class="n-who">Priya S. · Discovery set</p></li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="n-journal" id="journal" aria-labelledby="jr-title">
+    <div class="n-wrap">
+      <div class="n-head"><h2 id="jr-title">From the journal</h2><p>Short notes on wearing perfume.</p></div>
+      <ul class="n-posts">
+        <li><img src="/nuithra/stills/journal-1.webp" alt="" loading="lazy" width="1200" height="900"><h3>How to make a scent last longer</h3><p>Put it on your skin and not on your clothes. Spray it after a shower while your skin is still warm.</p>
+          <details><summary>Read more</summary><p>Dry skin holds scent poorly. An unscented lotion first helps a lot. Spray the wrists and the back of the neck. Do not rub your wrists together. Rubbing breaks down the top notes faster.</p></details></li>
+        <li><img src="/nuithra/stills/journal-2.webp" alt="" loading="lazy" width="1200" height="900"><h3>Top, heart and base notes</h3><p>A perfume changes as it dries. Here is what happens in the first six hours.</p>
+          <details><summary>Read more</summary><p>Top notes are what you smell first. They fade in about fifteen minutes. Heart notes come next and last a few hours. Base notes stay longest. They are what people remember after you leave the room.</p></details></li>
+        <li><img src="/nuithra/stills/journal-3.webp" alt="" loading="lazy" width="1200" height="900"><h3>Why our bottles are colored glass</h3><p>Colored glass protects perfume from light. It also looks good on a shelf.</p>
+          <details><summary>Read more</summary><p>Sunlight breaks perfume down over time. Tinted glass filters some of that light. Keep your bottle out of direct sun all the same. A drawer or a shelf away from the window is best.</p></details></li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="n-faq n-light" id="faq" aria-labelledby="faq-title">
+    <div class="n-wrap n-narrow">
+      <h2 id="faq-title">Questions</h2>
+      <details><summary>How long does the scent last?</summary><p>Six to eight hours on skin. It lasts longer on clothes and hair.</p></details>
+      <details><summary>Can I try a scent before I buy a bottle?</summary><p>Yes. The discovery set has three 8 ml sprays. Its cost comes off a full bottle within 60 days.</p></details>
+      <details><summary>Do you ship outside the US?</summary><p>Not yet. We ship to all 50 states.</p></details>
+      <details><summary>Can I return a bottle?</summary><p>Unopened bottles can come back within 30 days. We cannot take back opened bottles.</p></details>
+      <details><summary>Which size should I choose?</summary><p>The 30 ml bottle lasts about three months with daily wear. The 100 ml bottle lasts about a year.</p></details>
+    </div>
+  </section>
+
+  <section class="n-news" aria-labelledby="news-title">
+    <div class="n-wrap n-narrow">
+      <h2 id="news-title">Letters from NUITHRA</h2>
+      <p>One email a month. You hear about new batches and journal posts first.</p>
+      <form class="n-news-form" id="news-form" novalidate>
+        <label for="news-email">Email address</label>
+        <div><input id="news-email" type="email" autocomplete="email" required placeholder="you@example.com"><button type="submit" class="n-btn">Subscribe</button></div>
+        <p class="n-news-msg" id="news-msg" role="status" aria-live="polite"></p>
+      </form>
+    </div>
   </section>
 </main>
+
+<footer class="n-foot">
+  <div class="n-wrap n-foot-cols">
+    <div><p class="n-mark">NUITHRA</p><p>Perfume for the hours after dark.</p><p>(404) 555-0143</p></div>
+    <div><h3>Shop</h3><a href="#collection">All fragrances</a><a href="#discovery">Discovery set</a><a href="#quiz">Find your scent</a></div>
+    <div><h3>Help</h3><a href="#faq">Shipping</a><a href="#faq">Returns</a><a href="#faq">Questions</a></div>
+    <div><h3>About</h3><a href="#story">Our story</a><a href="#journal">Journal</a></div>
+  </div>
+  <p class="concept-foot">Concept by JLB USA. Fictional brand. Products and prices are demo data. <a href="https://jlbusa.com/">jlbusa.com</a></p>
+</footer>
 
 <div class="n-bar" role="region" aria-label="Purchase">
   <div class="n-bar-item"><span class="n-bar-name" id="bar-name">Amber Hour</span><span class="n-bar-size" id="bar-size">50 ml</span></div>
@@ -106,8 +198,6 @@
   <button type="button" class="n-checkout" id="checkout">Checkout (0)</button>
 </div>
 <div id="panel-root"></div>
-
-<footer class="concept-foot">Concept by JLB USA. Fictional brand. Products and prices are demo data. <a href="https://jlbusa.com/">jlbusa.com</a></footer>
 <script type="module" src="/src/nuithra/main.js"></script>
 </body>
 </html>

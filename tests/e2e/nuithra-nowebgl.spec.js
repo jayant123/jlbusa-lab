@@ -8,6 +8,6 @@ test('without WebGL: the still shows and the shop works', async ({ page }) => {
   await page.goto('/nuithra/');
   await expect(page.locator('.nuithra-still').first()).toBeVisible();
   await expect(page.getByTestId('price')).toHaveText('$140');
-  await page.getByRole('button', { name: 'Add to cart' }).click();
+  await page.getByRole('button', { name: 'Add to cart' }).first().click();
   await expect(page.getByRole('button', { name: /Checkout \(1\)/ })).toBeVisible();
 });

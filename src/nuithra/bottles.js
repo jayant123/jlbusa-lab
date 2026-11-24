@@ -41,7 +41,7 @@ const GLASS = {
     g.rotateX(Math.PI / 2);
     g.translate(0, 0.047 + 0.0035, 0);
     const foot = riser(roundedRect(0.036, 0.024, 0.007), 0.006, 0.0022);
-    return { geo: mergeTwo(g, foot), top: 0.0505 + 0.047, w: 0.094, d: 0.027 };
+    return { geo: mergeTwo(g, foot), top: 0.0905, w: 0.094, d: 0.027 };
   },
   column() {
     const r = 0.025, h = 0.1;

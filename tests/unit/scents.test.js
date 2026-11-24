@@ -54,3 +54,23 @@ describe('NUITHRA scents', () => {
     expect(discoveryAttrs([a, b, 'nope'])).toBeNull();
   });
 });
+
+import { suggest, QUIZ } from '../../src/nuithra/scents.js';
+describe('scent finder', () => {
+  it('asks three questions with answers that all point somewhere', () => {
+    expect(QUIZ).toHaveLength(3);
+    for (const q of QUIZ) for (const a of q.answers) expect(Object.keys(a.score).every((h) => SCENTS[h])).toBe(true);
+  });
+  it('suggests a warm evening scent for warm, evening and strong', () => {
+    expect(suggest({ when: 'evening', like: 'warm', strength: 'strong' })).toBe('nuithra-amber-hour');
+  });
+  it('suggests Salt Iris for fresh, daytime and soft', () => {
+    expect(suggest({ when: 'day', like: 'fresh', strength: 'soft' })).toBe('nuithra-salt-iris');
+  });
+  it('suggests Smoke Garden for wood and smoke in the evening', () => {
+    expect(suggest({ when: 'evening', like: 'wood', strength: 'strong' })).toBe('nuithra-smoke-garden');
+  });
+  it('returns null until every question is answered', () => {
+    expect(suggest({ when: 'day', like: 'fresh' })).toBeNull();
+  });
+});
