@@ -25,6 +25,7 @@ def mats():
         'bezel': C.material('bezel_finish', (0.86, 0.86, 0.88), metallic=1.0, roughness=0.12),
         'dial': C.material('dial_finish', (0.018, 0.018, 0.02), metallic=0.3, roughness=0.28, coat=0.6, anisotropic=0.5),
         'applique': C.material('applique_steel', (0.92, 0.92, 0.93), metallic=1.0, roughness=0.08),
+        'index': C.material('index_steel', (0.92, 0.92, 0.93), metallic=1.0, roughness=0.08),  # hour markers (glow at night in the web scene)
         'print': C.material('dial_print', (0.86, 0.84, 0.80), roughness=0.6),
         'hands': C.material('hands_steel', (0.92, 0.92, 0.93), metallic=1.0, roughness=0.1),
         'lume': C.material('lume', (0.90, 0.93, 0.86), roughness=0.55),
@@ -135,7 +136,7 @@ def build(lod='high'):
         for wa, wb in widths:
             pts = [(wa, 0.0134), (wb, 0.0134), (wb, 0.0160), (wa, 0.0160)]
             rot = [(x * math.cos(a - math.pi / 2) - y * math.sin(a - math.pi / 2), x * math.sin(a - math.pi / 2) + y * math.cos(a - math.pi / 2)) for x, y in pts]
-            o = C.extrude_poly(f'idx{h}{wa}', rot, 0.0064, 0.00068 + 0.0064, m['applique'])
+            o = C.extrude_poly(f'idx{h}{wa}', rot, 0.0064, 0.00068 + 0.0064, m['index'])
             if lod != 'low':
                 C.bevel(o, 0.00006, 1)
             markers.append(o)

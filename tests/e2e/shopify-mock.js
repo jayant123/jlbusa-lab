@@ -10,7 +10,7 @@ function cartFrom(lines) {
   return {
     id: 'gid://shopify/Cart/c1', checkoutUrl: 'https://aion-concept-by-jlb-usa.myshopify.com/cart/c/c1?key=k',
     cost: { totalAmount: { amount: String(total), currencyCode: 'USD' } },
-    lines: { nodes: lines.map((l, i) => ({ id: `gid://shopify/CartLine/${i}`, quantity: l.qty, attributes: [],
+    lines: { nodes: lines.map((l, i) => ({ id: `gid://shopify/CartLine/${i}`, quantity: l.qty, attributes: l.attrs || [],
       merchandise: { id: l.v.id, title: l.v.selectedOptions.map((o) => o.value).join(' / '), price: l.v.price,
         product: { title: 'OSTREL Meridian 40' }, selectedOptions: l.v.selectedOptions } })) },
   };
@@ -25,7 +25,7 @@ export async function mockShopify(page, { failProducts = false } = {}) {
       return route.fulfill({ json: product });
     }
     if (query.includes('cartCreate') || query.includes('cartLinesAdd')) {
-      for (const l of variables.lines) lines.push({ v: variants.find((v) => v.id === l.merchandiseId), qty: l.quantity });
+      for (const l of variables.lines) lines.push({ v: variants.find((v) => v.id === l.merchandiseId), qty: l.quantity, attrs: l.attributes || [] });
       const key = query.includes('cartCreate') ? 'cartCreate' : 'cartLinesAdd';
       return route.fulfill({ json: { data: { [key]: { cart: cartFrom(lines), userErrors: [] } } } });
     }

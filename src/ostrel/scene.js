@@ -1,5 +1,6 @@
-// OSTREL 3D scene: loads the watch for the device tier, applies finishes per selection, runs the movement,
-// and positions parts and camera from the explosion progress t.
+// OSTREL 3D scene: loads the watch for the device tier and applies finishes per selection. It runs the movement in
+// real time. Scroll state drives the explosion (t), the night mode (lume) and the flip to the caseback. The
+// configurator can point the camera at the part being changed. Visitors can drag to turn the watch.
 import * as THREE from 'three';
 import { createStage } from '../kit/stage.js';
 import { partOffsets, PARTS } from './explode.js';
@@ -21,8 +22,9 @@ const FINISH = {
     'Cognac calf': () => P({ color: 0x4f2510, roughness: 0.62 }),
   },
 };
+const LUME = new THREE.Color(0x8dffa6);
 
-// Camera keyframes [t, position, target] in meters; the watch axis is +Y.
+// Camera keyframes [t, position, target] in meters. The watch axis is +Y.
 const VIEWS = [
   [0, [0.022, 0.100, 0.088], [0.0, 0.001, -0.003]],
   [0.55, [0.105, 0.070, 0.112], [0.0, 0.012, 0.0]],
@@ -30,7 +32,21 @@ const VIEWS = [
 ];
 const MACRO = [[0.03, 0.07, 0.06], [-0.003, 0.006, 0.0]];
 const CONFIG = [[0.012, 0.115, 0.050], [0.0, 0.0, -0.006]];
+const NIGHT = [[0.010, 0.088, 0.052], [0.0, 0.003, -0.002]];
+const FOCUS = {
+  Dial: [[0.004, 0.074, 0.036], [0.0, 0.006, -0.002]],
+  Case: [[0.080, 0.030, 0.050], [0.0, 0.004, 0.0]],
+  Strap: [[0.050, 0.090, 0.125], [0.0, 0.0, 0.018]],
+  Engraving: [[0.010, 0.105, 0.046], [0.0, 0.0, -0.004]],
+};
+// Label anchors: height above the part origin and radius from the axis, in meters.
+const ANCHOR = {
+  crystal: [0.0122, 0.010], bezel: [0.0108, 0.0195], hands_minute: [0.0074, 0.008], dial: [0.0063, 0.0166],
+  balance_wheel: [0.0042, 0.003], movement_plate: [0.0030, 0.0160], case: [0.0050, 0.0200],
+};
 const lerp = (a, b, k) => a.map((v, i) => v + (b[i] - v) * k);
+const ease = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
 
 function viewAt(t) {
   for (let i = 0; i < VIEWS.length - 1; i++) {
@@ -62,11 +78,67 @@ function studio() {
   return env;
 }
 
-export async function createOstrelScene(canvas, { tier, onReady, onFallback, reducedMotion }) {
+// Text set on a circle around angle a (radians, canvas space). Top arcs read clockwise and bottom arcs read counter.
+function arcText(ctx, text, cx, cy, r, a, bottom) {
+  const spacing = 0.14 * parseFloat(ctx.font.match(/(\d+)px/)[1]);
+  const chars = [...text];
+  const widths = chars.map((ch) => ctx.measureText(ch).width + spacing);
+  const total = widths.reduce((s, w) => s + w, 0) - spacing;
+  const dir = bottom ? -1 : 1;
+  let ang = a - dir * total / (2 * r);
+  chars.forEach((ch, i) => {
+    const mid = ang + dir * (widths[i] - spacing) / (2 * r);
+    ctx.save();
+    ctx.translate(cx + r * Math.cos(mid), cy + r * Math.sin(mid));
+    ctx.rotate(mid + dir * Math.PI / 2);
+    ctx.fillText(ch, 0, 0);
+    ctx.restore();
+    ang += dir * widths[i] / r;
+  });
+}
+
+const RING_IN = 0.0124, RING_OUT = 0.0183;
+function drawCaseback(canvas, personal) {
+  const ctx = canvas.getContext('2d');
+  const S = canvas.width, c = S / 2, k = c / RING_OUT;
+  ctx.clearRect(0, 0, S, S);
+  ctx.fillStyle = '#fff';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = '500 50px "IBM Plex Mono", ui-monospace, monospace';
+  const r = ((RING_IN + RING_OUT) / 2) * k;
+  arcText(ctx, 'OSTREL · MERIDIAN 40 · Nº 0417', c, c, r, -Math.PI / 2, false);
+  arcText(ctx, personal || 'SAPPHIRE · 100 M · AUTOMATIC', c, c, r, Math.PI / 2, true);
+  ctx.globalAlpha = 0.5;
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = '#fff';
+  for (const rr of [RING_IN + 0.0006, RING_OUT - 0.0007]) { ctx.beginPath(); ctx.arc(c, c, rr * k, 0, Math.PI * 2); ctx.stroke(); }
+  ctx.globalAlpha = 1;
+}
+
+// Gold rotor under the movement, seen through the sapphire caseback.
+function rotor() {
+  const s = new THREE.Shape();
+  s.absarc(0, 0, 0.0152, Math.PI * 0.02, Math.PI * 0.98, false);
+  s.absarc(0, 0, 0.0034, Math.PI * 0.98, Math.PI * 0.02, true);
+  const g = new THREE.ExtrudeGeometry(s, { depth: 0.00028, bevelEnabled: true, bevelThickness: 0.00004, bevelSize: 0.00004, bevelSegments: 1, curveSegments: 48 });
+  g.rotateX(Math.PI / 2);
+  const arm = new THREE.Mesh(g, P({ color: 0xd9b67a, metalness: 1, roughness: 0.26, clearcoat: 0.4 }));
+  const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.0034, 0.0034, 0.00045, 40), P({ color: 0xe6c68e, metalness: 1, roughness: 0.34 }));
+  const screw = new THREE.Mesh(new THREE.CylinderGeometry(0.0011, 0.0011, 0.0006, 24), P({ color: 0x23356e, metalness: 1, roughness: 0.25 }));
+  screw.position.y = -0.0002;
+  hub.position.y = -0.0001;
+  const grp = new THREE.Group();
+  grp.add(arm, hub, screw);
+  grp.position.y = 0.00165;
+  return grp;
+}
+
+export async function createOstrelScene(canvas, { tier, onReady, onFallback, reducedMotion, intro = false, dragSurfaces = [] }) {
   const stage = createStage(canvas, { tier, fov: 28, createRenderer: (c, tr) => {
     const r = new THREE.WebGLRenderer({ canvas: c, antialias: tr !== 'low', alpha: true, powerPreference: 'high-performance' });
     r.toneMapping = THREE.ACESFilmicToneMapping;
-    r.toneMappingExposure = 1.05;
+    r.toneMappingExposure = intro ? 0 : 1.05;
     r.outputColorSpace = THREE.SRGBColorSpace;
     r.setClearColor(0x000000, 0);
     return r;
@@ -77,7 +149,8 @@ export async function createOstrelScene(canvas, { tier, onReady, onFallback, red
 
   const pmrem = new THREE.PMREMGenerator(renderer);
   scene.environment = pmrem.fromScene(studio(), 0.02).texture;
-  scene.environmentIntensity = 1.35;
+  const ENV = 1.35;
+  scene.environmentIntensity = ENV;
   const key = new THREE.DirectionalLight(0xffffff, 1.2);
   key.position.set(0.3, 0.5, 0.2);
   const rim = new THREE.DirectionalLight(0xffd6a0, 1.4);
@@ -86,13 +159,34 @@ export async function createOstrelScene(canvas, { tier, onReady, onFallback, red
 
   const gltf = await stage.load(`/ostrel/watch-${tier === 'low' ? 'low' : tier === 'mid' ? 'mid' : 'high'}.glb`);
   const root = gltf.scene;
-  scene.add(root);
+  // spin (drag and tilt) holds flip (caseback) which holds the watch. The flip pivots around the middle of the case.
+  const spin = new THREE.Group(), flip = new THREE.Group();
+  flip.position.y = 0.0055;
+  root.position.y = -0.0055;
+  flip.add(root);
+  spin.add(flip);
+  scene.add(spin);
   const nodes = Object.fromEntries(PARTS.map((k) => [k, root.getObjectByName(k)]).filter(([, v]) => v));
   const base = Object.fromEntries(Object.entries(nodes).map(([k, n]) => [k, { y: n.position.y, ry: n.rotation.y }]));
+  // Parts are stored quantized (each node has its own scale and offset). Measure each part's axis in watch meters,
+  // and give runtime additions a holder that works in watch meters while still moving with the part.
+  root.updateMatrixWorld(true);
+  const axis = {};
+  for (const [k, n] of Object.entries(nodes)) {
+    const c = new THREE.Box3().setFromObject(n).getCenter(new THREE.Vector3());
+    axis[k] = [c.x, c.z];
+  }
+  const holder = (n) => {
+    const g = new THREE.Group();
+    g.scale.setScalar(1 / n.scale.x);
+    g.position.copy(n.position).multiplyScalar(-1 / n.scale.x);
+    n.add(g);
+    return g;
+  };
   root.traverse((o) => {
     if (!o.isMesh) return;
     if (o.material.name === 'glass_crystal') {
-      // Reflection-only glass: transparent body, environment highlights on top (no transmission pass).
+      // Reflection-only glass: transparent body with environment highlights on top (no transmission pass).
       o.material = new THREE.MeshPhysicalMaterial({ color: 0xffffff, transparent: true, opacity: 0.05, roughness: 0.02, metalness: 0,
         clearcoat: 1, clearcoatRoughness: 0.02, depthWrite: false });
       o.renderOrder = 2;
@@ -100,17 +194,40 @@ export async function createOstrelScene(canvas, { tier, onReady, onFallback, red
   });
   const slots = (name) => { const out = []; root.traverse((o) => { if (o.isMesh && o.material.name === name) out.push(o); }); return out; };
   const dialMeshes = slots('dial_finish'), caseMeshes = [...slots('case_finish')], bezelMeshes = slots('bezel_finish'), strapMeshes = slots('strap_finish');
+  const lumeMats = [...new Set([...slots('lume'), ...slots('index_steel')].map((o) => o.material))];
+  lumeMats.forEach((m) => { m.emissive = LUME.clone(); m.emissiveIntensity = 0; });
   const cache = {};
   const mat = (group, value) => (cache[group + value] ||= FINISH[group][value]());
 
-  let t = 0, tTarget = 0, macro = false, configView = false;
-  const setT = (v) => { tTarget = Math.min(1, Math.max(0, v)); };
+  // Engraved caseback ring and the rotor behind the sapphire window.
+  const engCanvas = document.createElement('canvas');
+  engCanvas.width = engCanvas.height = 1024;
+  const engTex = new THREE.CanvasTexture(engCanvas);
+  engTex.colorSpace = THREE.SRGBColorSpace;
+  engTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  const engMat = new THREE.MeshPhysicalMaterial({ map: engTex, transparent: true, color: 0x5a5c60, metalness: 0.6, roughness: 0.7,
+    depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
+  const ringGeo = new THREE.RingGeometry(RING_IN, RING_OUT, 128);
+  ringGeo.rotateX(Math.PI / 2);
+  const ring = new THREE.Mesh(ringGeo, engMat);
+  ring.position.y = -0.00002;
+  if (nodes.case) holder(nodes.case).add(ring);
+  let personal = '';
+  const redraw = () => { drawCaseback(engCanvas, personal); engTex.needsUpdate = true; };
+  if (document.fonts?.status === 'loaded') redraw(); else { redraw(); document.fonts?.ready.then(redraw); }
+  const rot = rotor();
+  if (nodes.movement_plate) holder(nodes.movement_plate).add(rot);
+
+  let t = 0, tTarget = 0, macro = false, configView = false, focusKey = null;
+  let night = 0, nightT = 0, flipV = 0, flipT = 0;
+  const setT = (v) => { tTarget = clamp(v); };
 
   function apply(sel) {
     dialMeshes.forEach((m) => { m.material = mat('dial', sel.Dial); });
     caseMeshes.forEach((m) => { m.material = mat('case', sel.Case); });
     const polished = sel.Case === 'Black ceramic' ? mat('case', 'Black ceramic') : mat('case', 'Polished steel');
     bezelMeshes.forEach((m) => { m.material = polished; });
+    engMat.color.set(sel.Case === 'Black ceramic' ? 0x8a8c90 : 0x5a5c60);
     const bracelet = sel.Strap === 'Steel bracelet';
     ['strap_top', 'strap_bottom'].forEach((k) => { if (nodes[k]) nodes[k].visible = !bracelet; });
     ['bracelet_top', 'bracelet_bottom'].forEach((k) => { if (nodes[k]) nodes[k].visible = bracelet; });
@@ -129,9 +246,45 @@ export async function createOstrelScene(canvas, { tier, onReady, onFallback, red
   window.addEventListener('resize', frame);
   frame();
 
-  let yaw = 0;
+  // Pointer: the watch leans toward a mouse cursor in the opening view. Dragging sideways turns it.
+  const fine = matchMedia('(pointer: fine)').matches && !reducedMotion;
+  let ptr = [0, 0], tilt = [0, 0], tiltGain = 0, yaw = 0, yawVel = 0, drag = null;
+  if (fine) window.addEventListener('pointermove', (e) => { if (e.pointerType === 'mouse') ptr = [e.clientX / innerWidth * 2 - 1, e.clientY / innerHeight * 2 - 1]; });
+  const SKIP = 'input,button,a,label,select,textarea,.o-choice,.kit-panel';
+  for (const el of dragSurfaces) {
+    el.addEventListener('pointerdown', (e) => {
+      if (e.button || e.target.closest(SKIP)) return;
+      drag = { id: e.pointerId, x: e.clientX, y: e.clientY, yaw, on: false, lx: e.clientX, lt: performance.now() };
+    });
+  }
+  window.addEventListener('pointermove', (e) => {
+    if (!drag || e.pointerId !== drag.id) return;
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    if (!drag.on && Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy) * 1.2) { drag.on = true; document.body.classList.add('is-turning'); }
+    if (!drag.on) return;
+    const now = performance.now();
+    yaw = drag.yaw + dx * 0.0105;
+    yawVel = ((e.clientX - drag.lx) * 0.0105) / Math.max(8, now - drag.lt) * 16.7;
+    drag.lx = e.clientX;
+    drag.lt = now;
+  });
+  const endDrag = () => { if (drag?.on) document.body.classList.remove('is-turning'); drag = null; };
+  window.addEventListener('pointerup', endDrag);
+  window.addEventListener('pointercancel', endDrag);
+
+  // Opening sequence: exposure rises from black while a light sweeps across the bezel and the camera glides in.
+  let introAt = intro ? -1 : null, introDone = null;
+  const introK = (now) => (introAt === null ? 1 : introAt < 0 ? 0 : clamp((now - introAt) / 2.8));
+
+  let rotorA = 0;
+  const tmp = new THREE.Vector3(), camRight = new THREE.Vector3();
   stage.onFrame((dt, now) => {
-    t += (tTarget - t) * Math.min(1, dt * (reducedMotion ? 30 : 6));
+    const sm = (rate) => Math.min(1, dt * (reducedMotion ? 30 : rate));
+    t += (tTarget - t) * sm(6);
+    night += (nightT - night) * sm(3.5);
+    const wantFlip = configView && focusKey === 'Engraving' ? 1 : flipT;
+    flipV += (wantFlip - flipV) * sm(4);
+
     const off = partOffsets(t);
     for (const [k, n] of Object.entries(nodes)) {
       n.position.y = base[k].y + off[k].z;
@@ -147,31 +300,83 @@ export async function createOstrelScene(canvas, { tier, onReady, onFallback, red
     if (nodes.balance_wheel) nodes.balance_wheel.rotation.y = Math.sin(now * Math.PI * 8) * 1.4;
     if (nodes.escape_wheel) nodes.escape_wheel.rotation.y = -(Math.floor(now * 8)) * (Math.PI / 15) * 0.5;
     if (nodes.gear_train) nodes.gear_train.rotation.y = -now * 0.05;
-    let [p, g] = viewAt(t);
-    if (macro) [p, g] = MACRO;
-    if (configView) [p, g] = CONFIG;
-    const tgtV = new THREE.Vector3(...g);
-    const posV = new THREE.Vector3(...p).sub(tgtV).multiplyScalar(dist).add(tgtV).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
-    camera.position.lerp(posV, 0.08);
-    camera.lookAt(...g);
-  });
 
-  // Touch/mouse rotate only while inspecting.
-  let drag = null;
-  canvas.addEventListener('pointerdown', (e) => { if (macro) drag = { x: e.clientX, yaw }; });
-  window.addEventListener('pointermove', (e) => { if (drag) yaw = drag.yaw + (e.clientX - drag.x) * 0.008; });
-  window.addEventListener('pointerup', () => { drag = null; });
+    // Turning: inertia after a drag. The watch drifts home once its section is gone.
+    if (!drag) {
+      yaw += yawVel;
+      yawVel *= 0.92;
+      if (t > 0.04 && !configView && flipV < 0.5 && night < 0.5) yaw *= 1 - sm(2.5);
+    }
+    rotorA += yawVel * 4 + Math.sin(now * 0.9) * 0.004 * flipV;
+    rot.rotation.y = rotorA;
+    const inHero = t < 0.04 && !configView && flipV < 0.05 && night < 0.05;
+    tiltGain += ((fine && inHero ? 1 : 0) - tiltGain) * sm(3);
+    tilt = lerp(tilt, ptr, sm(4));
+    spin.rotation.y = yaw + tilt[0] * 0.32 * tiltGain;
+    flip.rotation.x = -Math.PI * ease(flipV) + tilt[1] * 0.1 * tiltGain;
+
+    // Light follows the cursor in the opening view and goes down for the night chapter.
+    const ik = introK(now);
+    const day = 1 - night * 0.94;
+    key.position.set(0.3 + tilt[0] * 0.45 * tiltGain - (1 - ease(ik)) * 0.9, 0.5, 0.2 + tilt[1] * 0.3 * tiltGain);
+    key.intensity = 1.2 * day;
+    rim.intensity = 1.4 * (1 - night * 0.85);
+    scene.environmentIntensity = ENV * day;
+    lumeMats.forEach((mm) => { mm.emissiveIntensity = night * 2.6; });
+    renderer.toneMappingExposure = 1.05 * ease(ik);
+    if (introAt !== null && introAt >= 0 && ik >= 1) { introAt = null; introDone?.(); }
+
+    let [p, g] = viewAt(t);
+    if (night > 0.001) [p, g] = [lerp(p, NIGHT[0], ease(night)), lerp(g, NIGHT[1], ease(night))];
+    if (macro) [p, g] = MACRO;
+    if (configView) [p, g] = FOCUS[focusKey] || CONFIG;
+    const tgtV = new THREE.Vector3(...g);
+    const far = 1 + (1 - ease(ik)) * 1.4;
+    const posV = new THREE.Vector3(...p).sub(tgtV).multiplyScalar(dist * far).add(tgtV);
+    camera.position.lerp(posV, ik < 1 ? 1 : 0.08);
+    camera.lookAt(...g);
+    camera.updateMatrixWorld();
+  });
 
   const [p0, g0] = viewAt(0);
   camera.position.set(...p0);
   camera.lookAt(...g0);
+  // Compile shaders off the main thread where the browser allows it, then start drawing.
+  try { await renderer.compileAsync(scene, camera); } catch { renderer.compile(scene, camera); }
   stage.start();
-  renderer.compile(scene, camera);
   onReady?.();
   return {
     apply,
     setT,
     setConfigView(on) { configView = on; if (on) tTarget = 0; },
-    setMacro(on) { macro = on; canvas.style.pointerEvents = on ? 'auto' : 'none'; if (!on) yaw = 0; },
+    setMacro(on) { macro = on; },
+    setNight(v) { nightT = clamp(v); },
+    setFlip(v) { flipT = clamp(v); },
+    focus(k) { focusKey = k; },
+    setEngraving(text) { if (text !== personal) { personal = text; redraw(); } },
+    playIntro() {
+      if (introAt === null) return Promise.resolve();
+      introAt = performance.now() / 1000;
+      return new Promise((res) => { introDone = res; });
+    },
+    skipIntro() { introAt = null; introDone?.(); },
+    state: () => ({ t, night, flip: flipV }),
+    debug: { nodes, ring, rot, root, camera, scene },
+    // Screen positions of label anchors on each part's rim, on the side that faces right on screen.
+    anchors(keys, side = 1) {
+      const w = canvas.clientWidth, h = canvas.clientHeight;
+      camRight.setFromMatrixColumn(camera.matrixWorld, 0);
+      const out = {};
+      for (const k of keys) {
+        const n = nodes[k];
+        if (!n || !ANCHOR[k]) continue;
+        const [hh, r] = ANCHOR[k];
+        root.localToWorld(tmp.set(axis[k][0], hh + n.position.y - base[k].y, axis[k][1]));
+        tmp.addScaledVector(camRight, r * side);
+        tmp.project(camera);
+        out[k] = { x: (tmp.x + 1) / 2 * w, y: (1 - tmp.y) / 2 * h };
+      }
+      return out;
+    },
   };
 }

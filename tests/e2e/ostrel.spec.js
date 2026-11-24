@@ -29,6 +29,32 @@ test.describe('OSTREL', () => {
     await expect(dialog.getByRole('link', { name: 'Book a call' })).toHaveAttribute('href', /M8KowYvfgMMB7YiGggLu/);
   });
 
+  test('engraving is cleaned, shown and sent to Shopify as a line attribute', async ({ page }) => {
+    await mockShopify(page);
+    const sent = [];
+    page.on('request', (r) => { if (r.url().includes('graphql.json') && r.postData()?.includes('Cart')) sent.push(r.postDataJSON().variables); });
+    await page.goto(URL);
+    const field = page.getByLabel('Engraving');
+    await field.fill('j.s. <3 2026!!');
+    await expect(field).toHaveValue('J.S. 3 2026');
+    await expect(page.getByText('11 of 14 characters')).toBeVisible();
+    await page.getByRole('button', { name: 'Add to cart' }).click();
+    await expect(page.getByRole('button', { name: /Checkout \(1\)/ })).toBeVisible();
+    expect(sent.at(-1).lines[0].attributes).toEqual([{ key: 'Engraving', value: 'J.S. 3 2026' }]);
+    await page.getByRole('button', { name: /Checkout \(1\)/ }).click();
+    await expect(page.getByRole('dialog')).toContainText('Engraving: J.S. 3 2026');
+  });
+
+  test('no engraving sends no attribute', async ({ page }) => {
+    await mockShopify(page);
+    const sent = [];
+    page.on('request', (r) => { if (r.url().includes('graphql.json') && r.postData()?.includes('Cart')) sent.push(r.postDataJSON().variables); });
+    await page.goto(URL);
+    await page.getByRole('button', { name: 'Add to cart' }).click();
+    await expect(page.getByRole('button', { name: /Checkout \(1\)/ })).toBeVisible();
+    expect(sent.at(-1).lines[0].attributes).toEqual([]);
+  });
+
   test('sold out and missing combinations cannot be added', async ({ page }) => {
     await mockShopify(page);
     await page.goto(URL);
