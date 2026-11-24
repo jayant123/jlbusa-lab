@@ -1,0 +1,27 @@
+{
+  "brand": "OSTREL",
+  "vendor": "OSTREL (concept)",
+  "products": [
+    {
+      "handle": "ostrel-meridian-40",
+      "title": "OSTREL Meridian 40",
+      "type": "Wristwatch",
+      "body": "<p>A 40 mm automatic watch with an exhibition caseback. Concept product by JLB USA; demo data.</p>",
+      "options": [
+        { "name": "Dial", "values": ["Obsidian", "Champagne", "Glacier"] },
+        { "name": "Case", "values": ["Brushed platinum", "Polished steel", "Black ceramic"] },
+        { "name": "Strap", "values": ["Black calf", "Cognac calf", "Steel bracelet"] }
+      ],
+      "price": {
+        "base": 0,
+        "add": {
+          "Case": { "Brushed platinum": 6400, "Polished steel": 4800, "Black ceramic": 5600 },
+          "Strap": { "Black calf": 0, "Cognac calf": 0, "Steel bracelet": 650 },
+          "Dial": { "Obsidian": 0, "Champagne": 0, "Glacier": 300 }
+        }
+      },
+      "inventory": { "default": 12, "set": [{ "when": { "Dial": "Glacier", "Case": "Black ceramic", "Strap": "Steel bracelet" }, "qty": 0 }] },
+      "grams": 160
+    }
+  ]
+}
