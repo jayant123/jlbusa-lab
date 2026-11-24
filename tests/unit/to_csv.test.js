@@ -25,4 +25,15 @@ describe('to_csv', () => {
     expect(data[0][col('Title')]).toBe('OSTREL Meridian 40');
     expect(data[1][col('Title')]).toBe('');
   });
+
+  it('turns the PLINTHA seed into 24 variant rows with one sold out', () => {
+    const [header, ...data] = parseCsv(toCsv(seed('plintha')));
+    const col = (n) => header.indexOf(n);
+    expect(data).toHaveLength(24);
+    const sold = data.filter((r) => r[col('Variant Inventory Qty')] === '0');
+    expect(sold).toHaveLength(1);
+    expect(sold[0][col('Handle')]).toBe('plintha-ottoman');
+    expect(sold[0][col('Variant Inventory Policy')]).toBe('deny');
+    expect(new Set(data.map((r) => r[col('Handle')])).size).toBe(6);
+  });
 });

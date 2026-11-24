@@ -1,0 +1,235 @@
+{
+ "brand": "PLINTHA",
+ "vendor": "PLINTHA (concept)",
+ "products": [
+  {
+   "handle": "plintha-armless",
+   "title": "PLINTHA Armless module",
+   "type": "Modular sofa",
+   "footprintCm": [
+    90,
+    100
+   ],
+   "body": "<p>Armless module of the PLINTHA modular sofa, 90 \u00d7 100 cm. Concept product by JLB USA; demo data.</p>",
+   "options": [
+    {
+     "name": "Fabric",
+     "values": [
+      "Boucle Chalk",
+      "Wool Moss",
+      "Linen Sand",
+      "Velvet Ink"
+     ]
+    }
+   ],
+   "price": {
+    "base": 1450,
+    "add": {
+     "Fabric": {
+      "Boucle Chalk": 0,
+      "Wool Moss": 120,
+      "Linen Sand": 0,
+      "Velvet Ink": 180
+     }
+    }
+   },
+   "inventory": {
+    "default": 20,
+    "set": []
+   },
+   "grams": 30000
+  },
+  {
+   "handle": "plintha-corner",
+   "title": "PLINTHA Corner module",
+   "type": "Modular sofa",
+   "footprintCm": [
+    100,
+    100
+   ],
+   "body": "<p>Corner module of the PLINTHA modular sofa, 100 \u00d7 100 cm. Concept product by JLB USA; demo data.</p>",
+   "options": [
+    {
+     "name": "Fabric",
+     "values": [
+      "Boucle Chalk",
+      "Wool Moss",
+      "Linen Sand",
+      "Velvet Ink"
+     ]
+    }
+   ],
+   "price": {
+    "base": 1890,
+    "add": {
+     "Fabric": {
+      "Boucle Chalk": 0,
+      "Wool Moss": 120,
+      "Linen Sand": 0,
+      "Velvet Ink": 180
+     }
+    }
+   },
+   "inventory": {
+    "default": 20,
+    "set": []
+   },
+   "grams": 30000
+  },
+  {
+   "handle": "plintha-arm-left",
+   "title": "PLINTHA Left arm module",
+   "type": "Modular sofa",
+   "footprintCm": [
+    105,
+    100
+   ],
+   "body": "<p>Left arm module of the PLINTHA modular sofa, 105 \u00d7 100 cm. Concept product by JLB USA; demo data.</p>",
+   "options": [
+    {
+     "name": "Fabric",
+     "values": [
+      "Boucle Chalk",
+      "Wool Moss",
+      "Linen Sand",
+      "Velvet Ink"
+     ]
+    }
+   ],
+   "price": {
+    "base": 1690,
+    "add": {
+     "Fabric": {
+      "Boucle Chalk": 0,
+      "Wool Moss": 120,
+      "Linen Sand": 0,
+      "Velvet Ink": 180
+     }
+    }
+   },
+   "inventory": {
+    "default": 20,
+    "set": []
+   },
+   "grams": 30000
+  },
+  {
+   "handle": "plintha-arm-right",
+   "title": "PLINTHA Right arm module",
+   "type": "Modular sofa",
+   "footprintCm": [
+    105,
+    100
+   ],
+   "body": "<p>Right arm module of the PLINTHA modular sofa, 105 \u00d7 100 cm. Concept product by JLB USA; demo data.</p>",
+   "options": [
+    {
+     "name": "Fabric",
+     "values": [
+      "Boucle Chalk",
+      "Wool Moss",
+      "Linen Sand",
+      "Velvet Ink"
+     ]
+    }
+   ],
+   "price": {
+    "base": 1690,
+    "add": {
+     "Fabric": {
+      "Boucle Chalk": 0,
+      "Wool Moss": 120,
+      "Linen Sand": 0,
+      "Velvet Ink": 180
+     }
+    }
+   },
+   "inventory": {
+    "default": 20,
+    "set": []
+   },
+   "grams": 30000
+  },
+  {
+   "handle": "plintha-chaise",
+   "title": "PLINTHA Chaise module",
+   "type": "Modular sofa",
+   "footprintCm": [
+    90,
+    165
+   ],
+   "body": "<p>Chaise module of the PLINTHA modular sofa, 90 \u00d7 165 cm. Concept product by JLB USA; demo data.</p>",
+   "options": [
+    {
+     "name": "Fabric",
+     "values": [
+      "Boucle Chalk",
+      "Wool Moss",
+      "Linen Sand",
+      "Velvet Ink"
+     ]
+    }
+   ],
+   "price": {
+    "base": 2350,
+    "add": {
+     "Fabric": {
+      "Boucle Chalk": 0,
+      "Wool Moss": 120,
+      "Linen Sand": 0,
+      "Velvet Ink": 180
+     }
+    }
+   },
+   "inventory": {
+    "default": 20,
+    "set": []
+   },
+   "grams": 30000
+  },
+  {
+   "handle": "plintha-ottoman",
+   "title": "PLINTHA Ottoman",
+   "type": "Modular sofa",
+   "footprintCm": [
+    90,
+    90
+   ],
+   "body": "<p>Ottoman of the PLINTHA modular sofa, 90 \u00d7 90 cm. Concept product by JLB USA; demo data.</p>",
+   "options": [
+    {
+     "name": "Fabric",
+     "values": [
+      "Boucle Chalk",
+      "Wool Moss",
+      "Linen Sand",
+      "Velvet Ink"
+     ]
+    }
+   ],
+   "price": {
+    "base": 890,
+    "add": {
+     "Fabric": {
+      "Boucle Chalk": 0,
+      "Wool Moss": 120,
+      "Linen Sand": 0,
+      "Velvet Ink": 180
+     }
+    }
+   },
+   "inventory": {
+    "default": 20,
+    "set": [
+     {
+      "when": {
+       "Fabric": "Velvet Ink"
+      },
+      "qty": 0
+     }
+    ]
+   },
+   "grams": 30000
+  }
+ ]
+}
